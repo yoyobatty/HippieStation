@@ -20,3 +20,15 @@ TOKEN_CONSUMER http://127.0.0.1:9000/byondLinker.php
 
 ## Enables the text-to-speech subsystem, allowing humans to use it
 ENABLE_TTS
+
+## Comment this out to disable the OOC money earning system. This system rewards players who participate in the game instead of greytiding by giving them slightly higher odds to
+USE_PLAYER_DOSH
+
+ ## The maximum amount of dosh a player can earn in a single round before taxes
+DOSH_EARNED_MAXIMUM 5000
+
+ ## Universal basic income
+DOSH_EARNED_MINIMUM 1
+
+ ## Flat tax rate for all players
+DOSH_TAX_RATE 20
