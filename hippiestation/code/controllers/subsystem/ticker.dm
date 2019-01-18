@@ -31,3 +31,32 @@
 
 	SEND_SOUND(world, sound(round_end_sound))
 	text2file(login_music, "data/last_round_lobby_music.txt")
+
+
+/datum/controller/subsystem/ticker/show_roundend_report(client/C, previous = FALSE)
+	var/datum/browser/roundend_report = new(C, "roundend")
+	roundend_report.width = 800
+	roundend_report.height = 600
+	var/content
+	var/filename = C.roundend_report_file()
+	if(!previous)
+		var/list/report_parts = list(personal_report(C), tax_report(C), GLOB.common_report)
+		content = report_parts.Join()
+		C.verbs -= /client/proc/show_previous_roundend_report
+		fdel(filename)
+		text2file(content, filename)
+	else
+		content = file2text(filename)
+	roundend_report.set_content(content)
+	roundend_report.stylesheets = list()
+	roundend_report.add_stylesheet("roundend", 'html/browser/roundend.css')
+	roundend_report.open(FALSE)
+
+/datum/controller/subsystem/ticker/proc/tax_report(client/C)
+	var/DOSH_TAX_RATE = CONFIG_GET(number/dosh_tax_rate)
+	var/mob/M = C.mob
+	var/T4 = (M.job.paycheck * (100 - DOSH_TAX_RATE))
+	if(M.mind && !isnewplayer(M))
+		return "Income report: [T4] in net income at a tax rate of [DOSH_TAX_RATE]%.</span>"
+	SSpersistence.player_dosh_change[C.ckey] += T4
+
