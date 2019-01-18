@@ -46,6 +46,14 @@
 		removeMentor(href_list["removementor"])
 	else if(href_list["mentormemoeditlist"])
 		checkMentorEditList(href_list["mentormemoeditlist"])
+	else if(href_list["modplayerdosh"])
+		if(!check_rights(R_ADMIN))
+			return
+
+		var/mob/M = locate(href_list["mob"]) in GLOB.mob_list
+		var/client/C = M.client
+		usr.client.cmd_admin_mod_player_dosh(C, href_list["modplayerdosh"])
+		show_player_panel(M)
 
 /datum/admins/proc/checkMentorEditList(ckey)
 	var/sql_key = sanitizeSQL("[ckey]")
