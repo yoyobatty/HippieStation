@@ -54,9 +54,21 @@
 
 /datum/controller/subsystem/ticker/proc/tax_report(client/C)
 	var/DOSH_TAX_RATE = CONFIG_GET(number/dosh_tax_rate)
-	var/mob/M = C.mob
-	var/T4 = (M.job.paycheck * (100 - DOSH_TAX_RATE))
-	if(M.mind && !isnewplayer(M))
+	var/mob/living/L = C.mob
+	var/T4 = (get_pay_check(C) * (100 - DOSH_TAX_RATE)/100)
+	if(ishuman(L) && L.mind && !isnewplayer(L))
+		SSpersistence.player_dosh_change[C.ckey] += T4
 		return "Income report: [T4] in net income at a tax rate of [DOSH_TAX_RATE]%.</span>"
-	SSpersistence.player_dosh_change[C.ckey] += T4
 
+/datum/controller/subsystem/ticker/proc/get_pay_check(client/C)
+	if(!C)
+		return
+	if(!ishuman(C.mob))
+		return
+	var/mob/living/carbon/human/H = C.mob
+	if(H.job == ENGINEER|CHIEF)
+		var/datum/station_state/end_state = new /datum/station_state()
+		end_state.count()
+		var/station_integrity = min(PERCENT(GLOB.start_state.score(end_state)), 100)
+		return (10 * (station_integrity/100))
+	return 10
