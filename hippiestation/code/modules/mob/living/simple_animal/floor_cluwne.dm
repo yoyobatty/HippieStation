@@ -161,8 +161,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 	if(manifested)
 		movement_type = IMMOBILE
 		new /obj/effect/temp_visual/fcluwne_manifest(src.loc)
-		addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Appear), MANIFEST_DELAY)
-
+		addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Appear), MANIFEST_DELAY, TIMER_UNIQUE|TIMER_OVERRIDE)
 	else
 		layer = GAME_PLANE
 		invisibility = INVISIBILITY_MAXIMUM
@@ -234,7 +233,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 				to_chat(H, "<i>yalp ot tnaw I</i>")
 				Appear()
 				manifested = FALSE
-				addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Manifest), 1)
+				addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Manifest), 1, TIMER_UNIQUE|TIMER_OVERRIDE)
 				if(current_victim.hud_used)//yay skewium
 					var/list/screens = list(current_victim.hud_used.plane_masters["[GAME_PLANE]"], current_victim.hud_used.plane_masters["[LIGHTING_PLANE]"])
 					var/matrix/skew = matrix()
@@ -246,7 +245,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 						animate(whole_screen, transform = newmatrix, time = 5, easing = QUAD_EASING, loop = -1)
 						animate(transform = -newmatrix, time = 5, easing = QUAD_EASING)
 
-					addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Reset_View, screens), 10)
+					addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Reset_View, screens), 10, TIMER_UNIQUE|TIMER_OVERRIDE)
 
 		if(STAGE_TORMENT)
 
@@ -303,7 +302,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 				H.reagents.add_reagent("mercury", 3)
 				Appear()
 				manifested = FALSE
-				addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Manifest), 2)
+				addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Manifest), 2, TIMER_UNIQUE|TIMER_OVERRIDE)
 				for(var/obj/machinery/light/L in range(H, 8))
 					L.flicker()
 
@@ -321,22 +320,20 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 				manifested = TRUE
 				Manifest()
 				to_chat(H, "<span class='userdanger'>You feel the floor closing in on your feet!</span>")
-				H.Knockdown(300)
+				H.Paralyze(300)
 				H.emote("scream")
 				H.adjustBruteLoss(10)
 				if(!eating)
-					addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Grab, H), 50)
+					addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Grab, H), 50, TIMER_UNIQUE|TIMER_OVERRIDE)
 					for(var/turf/open/O in range(src, 6))
 						O.MakeSlippery(TURF_WET_LUBE, 20)
 						playsound(src, 'sound/effects/meteorimpact.ogg', 30, 1)
-
 				eating = TRUE
 
 
 /mob/living/simple_animal/hostile/floor_cluwne/proc/Grab(mob/living/carbon/human/H)
 	to_chat(H, "<span class='userdanger'>You feel a cold, gloved hand clamp down on your ankle!</span>")
 	for(var/I in 1 to get_dist(src, H))
-
 		if(do_after(src, 10, target = H))
 			step_towards(H, src)
 			playsound(H, pick('hippiestation/sound/effects/bodyscrape-01.ogg', 'hippiestation/sound/effects/bodyscrape-02.ogg'), 20, 1, -4)
@@ -346,7 +343,6 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 
 	if(get_dist(src,H) <= 1)
 		visible_message("<span class='danger'>[src] begins dragging [H] under the floor!</span>")
-
 		if(do_after(src, 50, target = H) && eating)
 			H.become_blind()
 			H.layer = GAME_PLANE
@@ -354,7 +350,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 			H.mouse_opacity = MOUSE_OPACITY_TRANSPARENT
 			H.density = FALSE
 			H.anchored = TRUE
-			addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Kill, H), 100)
+			addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Kill, H), 100, TIMER_UNIQUE|TIMER_OVERRIDE)
 			visible_message("<span class='danger'>[src] pulls [H] under!</span>")
 			to_chat(H, "<span class='userdanger'>[src] drags you underneath the floor!</span>")
 	else
@@ -413,7 +409,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 	icon = 'hippiestation/icons/turf/floors.dmi'
 	icon_state = "fcluwne_manifest"
 	layer = TURF_LAYER
-	duration = INFINITY
+	duration = 100
 	randomdir = FALSE
 
 
