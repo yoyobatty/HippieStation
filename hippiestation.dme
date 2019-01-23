@@ -2793,6 +2793,7 @@
 #include "hippiestation\code\controllers\subsystem\processing\circuit.dm"
 #include "hippiestation\code\datums\action.dm"
 #include "hippiestation\code\datums\dna.dm"
+#include "hippiestation\code\datums\explosion.dm"
 #include "hippiestation\code\datums\martial.dm"
 #include "hippiestation\code\datums\mutations.dm"
 #include "hippiestation\code\datums\progressbar.dm"
