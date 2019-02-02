@@ -3,7 +3,6 @@
 	desc = "Equipped with reliable safeties to prevent <i>accidents</i> in the workplace."
 	icon = 'hippiestation/icons/obj/vehicles.dmi'
 	icon_state = "lawnmower"
-	var/emagged = FALSE
 	var/list/drive_sounds = list('hippiestation/sound/effects/mowermove1.ogg', 'hippiestation/sound/effects/mowermove2.ogg')
 	var/list/gib_sounds = list('hippiestation/sound/effects/mowermovesquish.ogg')
 	var/driver
@@ -14,18 +13,19 @@
 	D.vehicle_move_delay = 2
 	D.set_riding_offsets(RIDING_OFFSET_ALL, list(TEXT_NORTH = list(0, 4), TEXT_SOUTH = list(0, 7), TEXT_EAST = list(-5, 2), TEXT_WEST = list(5, 2)))
 
-/obj/vehicle/ridden/lawnmower/emagged
-	emagged = TRUE
+/obj/vehicle/ridden/lawnmower/emagged/Initialize()
+	. = ..()
+	emag_act()
 
 /obj/vehicle/ridden/lawnmower/emag_act(mob/user)
-	if(emagged)
+	if(obj_flags & EMAGGED)
 		to_chat(user, "<span class='warning'>The safety mechanisms on \the [src] are already disabled!</span>")
 		return
 	to_chat(user, "<span class='warning'>You disable the safety mechanisms on \the [src].</span>")
-	emagged = TRUE
+	obj_flags |= EMAGGED
 
 /obj/vehicle/ridden/lawnmower/Bump(atom/A)
-	if(emagged)
+	if(obj_flags & EMAGGED)
 		if(isliving(A))
 			var/mob/living/M = A
 			M.adjustBruteLoss(25)
@@ -41,7 +41,7 @@
 	if(has_buckled_mobs())
 		H = buckled_mobs[1]
 
-	if(emagged)
+	if(obj_flags & EMAGGED)
 		for(var/mob/living/carbon/human/M in loc)
 			if(M == H)
 				continue
