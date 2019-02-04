@@ -81,7 +81,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 	do_jitter_animation(1000)
 	pixel_y = 8
 
-	if(is_type_in_typecache(get_area(src.loc), invalid_area_typecache) || !is_station_level(z))
+	if(is_type_in_typecache(get_area(src.loc), invalid_area_typecache) || (!is_station_level(z) && !is_type_in_typecache(get_area(src.loc), list(/area/shuttle/escape))))
 		var/area = pick(GLOB.teleportlocs)
 		var/area/tp = GLOB.teleportlocs[area]
 		forceMove(pick(get_area_turfs(tp.type)))
@@ -100,7 +100,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 
 	var/turf/T = get_turf(current_victim)
 	if(prob(5))//checks roughly every 20 ticks
-		if(current_victim.stat == DEAD || current_victim.dna.check_mutation(CLUWNEMUT) || is_type_in_typecache(get_area(T), invalid_area_typecache) || !is_station_level(current_victim.z))
+		if(current_victim.stat == DEAD || current_victim.dna.check_mutation(CLUWNEMUT) || is_type_in_typecache(get_area(T), invalid_area_typecache) || (!is_station_level(current_victim.z) && !is_type_in_typecache(get_area(src.loc), list(/area/shuttle/escape))))
 			if(!Found_You())
 				Acquire_Victim()
 
@@ -123,7 +123,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 	..()
 
 /mob/living/simple_animal/hostile/floor_cluwne/Goto(target, delay, minimum_distance)
-	if(!manifested && !is_type_in_typecache(get_area(current_victim.loc), invalid_area_typecache) && is_station_level(current_victim.z))
+	if(!manifested && !is_type_in_typecache(get_area(current_victim.loc), invalid_area_typecache) && (is_station_level(current_victim.z) || is_type_in_typecache(get_area(src.loc), list(/area/shuttle/escape))))
 		walk_to(src, target, minimum_distance, delay)
 	else
 		walk_to(src,0)
@@ -337,7 +337,10 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 						if(O.density || istype(O, /obj/machinery/door/airlock))
 							forceMove(H.loc)
 				to_chat(H, "<span class='userdanger'>You feel the floor closing in on your feet!</span>")
-				H.Paralyze(300)
+				H.Paralyze(1000)
+				H.Knockdown(1000)
+				H.Stun(1000)
+				H.adjustStaminaLoss(100)
 				H.emote("scream")
 				H.adjustBruteLoss(10)
 				manifested = TRUE
@@ -345,7 +348,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 				if(!eating)
 					addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Grab, H), 50, TIMER_OVERRIDE|TIMER_UNIQUE)
 					for(var/turf/open/O in range(src, 6))
-						O.MakeSlippery(TURF_WET_LUBE, 20)
+						O.MakeSlippery(TURF_WET_ICE, min_wet_time = 40, wet_time_to_add = 20)
 						playsound(src, 'sound/effects/meteorimpact.ogg', 30, 1)
 				eating = TRUE
 
@@ -367,14 +370,15 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 		if(do_after(src, 50, target = H) && eating)
 			H.become_blind()
 			H.layer = GAME_PLANE
-			H.invisibility = INVISIBILITY_OBSERVER
+			H.invisibility = INVISIBILITY_MAXIMUM
 			H.density = FALSE
 			H.anchored = TRUE
+			H.mouse_opacity = FALSE
 			addtimer(CALLBACK(src, /mob/living/simple_animal/hostile/floor_cluwne/.proc/Kill, H), 100, TIMER_OVERRIDE|TIMER_UNIQUE)
 			visible_message("<span class='danger'>[src] pulls [H] under!</span>")
 			to_chat(H, "<span class='userdanger'>[src] drags you underneath the floor!</span>")
 		else
-			eating = FALSE
+			eating = FALSE //This resets the mob, so it's not stuck spamming the breathing noise
 	else
 		eating = FALSE
 	manifested = FALSE
@@ -382,20 +386,21 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 
 
 /mob/living/simple_animal/hostile/floor_cluwne/proc/Kill(mob/living/carbon/human/H)
-	if(!istype(H) || !H.client)
+	if(!H) //Because callbacks are fucky and we can't depend on the mob still existing
 		Acquire_Victim()
 		return
 	playsound(H, 'hippiestation/sound/effects/cluwne_feast.ogg', 100, 0, -4)
-	var/old_color = H.client.color
+	var/old_color = H.client?.color //sanity checks
 	var/red_splash = list(1,0,0,0.8,0.2,0, 0.8,0,0.2,0.1,0,0)
 	var/pure_red = list(0,0,0,0,0,0,0,0,0,1,0,0)
-	H.client.color = pure_red
-	animate(H.client,color = red_splash, time = 10, easing = SINE_EASING|EASE_OUT)
+	H.client?.color = pure_red //sanity checks
+	if(H.client) //sanity checks
+		animate(H.client,color = red_splash, time = 10, easing = SINE_EASING|EASE_OUT)
 	for(var/turf/T in orange(H, 4))
 		H.add_splatter_floor(T)
 	if(do_after(src, 50, target = H))
 		H.unequip_everything()//more runtime prevention
-		if(prob(75))
+		if(prob(75) || !H.client)//just explode their corpse if they've ghosted, stops glitches
 			H.gib(FALSE)
 		else
 			H.cluwneify()
@@ -407,6 +412,7 @@ GLOBAL_VAR_INIT(floor_cluwnes, 0)
 			H.density = initial(H.density)
 			H.anchored = initial(H.anchored)
 			H.blur_eyes(10)
+			H.mouse_opacity = TRUE
 			animate(H.client,color = old_color, time = 20)
 
 	eating = FALSE
