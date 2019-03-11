@@ -46,7 +46,8 @@
 
 /obj/item/laser_attachment/proc/refreshBeam()
 	var/mob/living/carbon/human/user = loc
-	if(!ishuman(user) && !user)
+	if(!ishuman(user) || !user)
+		on = FALSE
 		return
 	if(!on)
 		return
