@@ -48,6 +48,9 @@
 
 	return INITIALIZE_HINT_NORMAL
 
+/turf/open/space/update_visuals()
+	return
+
 //ATTACK GHOST IGNORING PARENT RETURN VALUE
 /turf/open/space/attack_ghost(mob/dead/observer/user)
 	if(destination_z)
