@@ -62,6 +62,7 @@
 			for(var/turf/turf in range(1,F))
 				if(!locate(/obj/effect/hotspot) in turf)
 					new /obj/effect/hotspot(F)
+					F.hotspot_expose(1000,reac_volume*1000) //hippie edit -- makes plasma fires work better
 	if(iswallturf(T))
 		var/turf/closed/wall/W = T
 		if(prob(reac_volume))
