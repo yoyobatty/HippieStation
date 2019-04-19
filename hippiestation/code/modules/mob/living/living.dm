@@ -1,4 +1,7 @@
 /* This is currently only supported for monkeys */
+/mob/living
+	var/turf/old_turf //Last turf someone has been in.
+
 /mob/living/proc/hippie_equip_mob_with_items(rand_int)
 	return
 
