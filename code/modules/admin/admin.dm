@@ -1,12 +1,16 @@
 
 ////////////////////////////////
-/proc/message_admins(msg)
+/proc/message_admins(msg, force_log = FALSE)
 	msg = "<span class=\"admin\"><span class=\"prefix\">ADMIN LOG:</span> <span class=\"message linkify\">[msg]</span></span>"
 	to_chat(GLOB.admins, msg)
+	if(force_log)
+		log_admin(msg)
 
-/proc/relay_msg_admins(msg)
+/proc/relay_msg_admins(msg, force_log = FALSE)
 	msg = "<span class=\"admin\"><span class=\"prefix\">RELAY:</span> <span class=\"message linkify\">[msg]</span></span>"
 	to_chat(GLOB.admins, msg)
+	if(force_log)
+		log_admin(msg)
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////Panels
