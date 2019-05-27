@@ -1159,6 +1159,7 @@
 		air_update_turf(1)
 	sleep(1)
 	if(!air_tight)
+		spread_gas() //hippie edit -- spreads gas from a close door
 		density = TRUE
 		air_update_turf(1)
 	sleep(4)

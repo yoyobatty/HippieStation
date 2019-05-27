@@ -11,23 +11,19 @@
 	var/easteregg_doorClose = 'hippiestation/sound/machines/airlockclose_doom.ogg'
 
 /obj/machinery/door/airlock/open(forced = 0)
+	. = ..()
 	if (prob(EASTEREGG_CHANCE))
 		easteregg_triggered = TRUE
 		doorOpen = easteregg_doorOpen
 		doorClose = easteregg_doorClose
 
-	return ..()
-
 /obj/machinery/door/airlock/close(forced = 0)
 	. = ..()
-
 	// Reset the sounds
 	if (easteregg_triggered)
 		easteregg_triggered = FALSE
 		doorOpen = initial(doorOpen)
 		doorClose = initial(doorClose)
-
-	return .
 
 /obj/machinery/door/airlock/bananium
 	doorClose = 'sound/items/bikehorn.ogg'

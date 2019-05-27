@@ -1,0 +1,8 @@
+/obj/machinery/door/proc/spread_gas()
+	var/turf/T = get_turf(src)
+	if(T)
+		for(var/turf/AT in T.GetAtmosAdjacentTurfs(alldir = TRUE))
+			var/datum/gas_mixture/air = T.return_air()
+			var/transfer_moles = (air.return_pressure())*1000/(air.temperature * R_IDEAL_GAS_EQUATION)
+			var/datum/gas_mixture/removed = air.remove(transfer_moles)
+			AT.assume_air(removed)

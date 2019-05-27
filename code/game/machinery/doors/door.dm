@@ -293,6 +293,7 @@
 	if(visible && !glass)
 		set_opacity(1)
 	operating = FALSE
+	spread_gas() //hippied edit -- spreads gas from a close door
 	air_update_turf(1)
 	update_freelook_sight()
 	if(safe)
