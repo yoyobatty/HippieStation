@@ -50,11 +50,11 @@ menu "menu"
 window "mainwindow"
 	elem "mainwindow"
 		type = MAIN
-		pos = 0,0
+		pos = 372,0
 		size = 640x440
 		anchor1 = none
 		anchor2 = none
-		background-color = #272727
+		background-color = none
 		is-default = true
 		saved-params = "pos;size;is-minimized;is-maximized"
 		icon = 'icons\\tg_32.png'
@@ -66,11 +66,29 @@ window "mainwindow"
 		size = 634x417
 		anchor1 = 0,0
 		anchor2 = 100,100
-		background-color = #272727
+		background-color = none
 		saved-params = "splitter"
 		left = "mapwindow"
 		right = "infowindow"
 		is-vert = true
+	elem "asset_cache_browser"
+		type = BROWSER
+		pos = 0,0
+		size = 200x200
+		anchor1 = none
+		anchor2 = none
+		background-color = none
+		is-visible = false
+		saved-params = ""
+	elem "tooltip"
+		type = BROWSER
+		pos = 0,0
+		size = 999x999
+		anchor1 = none
+		anchor2 = none
+		background-color = none
+		is-visible = false
+		saved-params = ""
 	elem "input"
 		type = INPUT
 		pos = 3,420
@@ -83,29 +101,27 @@ window "mainwindow"
 		is-default = true
 		border = sunken
 		saved-params = "command"
-	elem "saybutton"
-		type = BUTTON
-		pos = 600,420
-		size = 40x20
-		anchor1 = 100,100
-		anchor2 = none
-		background-color = #272727
-		text-color = #eaeaea
-		saved-params = "is-checked"
-		text = "Chat"
-		command = ".winset \"saybutton.is-checked=true ? input.command=\"!say \\\"\" : input.command=\"\"saybutton.is-checked=true ? mebutton.is-checked=false\"\"saybutton.is-checked=true ? oocbutton.is-checked=false\""
-		button-type = pushbox
 	elem "oocbutton"
 		type = BUTTON
 		pos = 520,420
 		size = 40x20
 		anchor1 = 100,100
 		anchor2 = none
-		background-color = #272727
-		text-color = #eaeaea
+		background-color = none
 		saved-params = "is-checked"
 		text = "OOC"
 		command = ".winset \"oocbutton.is-checked=true ? input.command=\"!ooc \\\"\" : input.command=\"\"oocbutton.is-checked=true ? mebutton.is-checked=false\"\"oocbutton.is-checked=true ? saybutton.is-checked=false\""
+		button-type = pushbox
+	elem "saybutton"
+		type = BUTTON
+		pos = 600,420
+		size = 40x20
+		anchor1 = 100,100
+		anchor2 = none
+		background-color = none
+		saved-params = "is-checked"
+		text = "Chat"
+		command = ".winset \"saybutton.is-checked=true ? input.command=\"!say \\\"\" : input.command=\"\"saybutton.is-checked=true ? mebutton.is-checked=false\"\"saybutton.is-checked=true ? oocbutton.is-checked=false\""
 		button-type = pushbox
 	elem "mebutton"
 		type = BUTTON
@@ -113,30 +129,11 @@ window "mainwindow"
 		size = 40x20
 		anchor1 = 100,100
 		anchor2 = none
-		background-color = #272727
-		text-color = #eaeaea
+		background-color = none
 		saved-params = "is-checked"
 		text = "Me"
 		command = ".winset \"mebutton.is-checked=true ? input.command=\"!me \\\"\" : input.command=\"\"mebutton.is-checked=true ? saybutton.is-checked=false\"\"mebutton.is-checked=true ? oocbutton.is-checked=false\""
 		button-type = pushbox
-	elem "asset_cache_browser"
-		type = BROWSER
-		pos = 0,0
-		size = 200x200
-		anchor1 = none
-		anchor2 = none
-		background-color = #272727
-		is-visible = false
-		saved-params = ""
-	elem "tooltip"
-		type = BROWSER
-		pos = 0,0
-		size = 999x999
-		anchor1 = none
-		anchor2 = none
-		background-color = #272727
-		is-visible = false
-		saved-params = ""
 
 window "mapwindow"
 	elem "mapwindow"
@@ -165,12 +162,11 @@ window "mapwindow"
 window "infowindow"
 	elem "infowindow"
 		type = MAIN
-		pos = 0,0
+		pos = 372,0
 		size = 640x480
 		anchor1 = none
 		anchor2 = none
-		text-color = #99aab5
-		background-color = #272727
+		background-color = none
 		saved-params = "pos;size;is-minimized;is-maximized"
 		is-pane = true
 	elem "info"
@@ -179,8 +175,7 @@ window "infowindow"
 		size = 640x445
 		anchor1 = 0,0
 		anchor2 = 100,100
-		text-color = #99aab5
-		background-color = #272727
+		background-color = none
 		saved-params = "splitter"
 		left = "statwindow"
 		right = "outputwindow"
@@ -191,8 +186,7 @@ window "infowindow"
 		size = 104x20
 		anchor1 = 3,0
 		anchor2 = 19,0
-		text-color = #99aab5
-		background-color = #494949
+		background-color = none
 		saved-params = "is-checked"
 		text = "Changelog"
 		command = "changelog"
@@ -202,8 +196,7 @@ window "infowindow"
 		size = 100x20
 		anchor1 = 19,0
 		anchor2 = 34,0
-		text-color = #99aab5
-		background-color = #494949
+		background-color = none
 		saved-params = "is-checked"
 		text = "Rules"
 		command = "rules"
@@ -213,8 +206,7 @@ window "infowindow"
 		size = 100x20
 		anchor1 = 34,0
 		anchor2 = 50,0
-		text-color = #99aab5
-		background-color = #494949
+		background-color = none
 		saved-params = "is-checked"
 		text = "Wiki"
 		command = "wiki"
@@ -224,8 +216,7 @@ window "infowindow"
 		size = 100x20
 		anchor1 = 50,0
 		anchor2 = 66,0
-		text-color = #99aab5
-		background-color = #494949
+		background-color = none
 		saved-params = "is-checked"
 		text = "Forum"
 		command = "forum"
@@ -235,8 +226,7 @@ window "infowindow"
 		size = 100x20
 		anchor1 = 66,0
 		anchor2 = 81,0
-		text-color = #99aab5
-		background-color = #3a3a3a
+		background-color = none
 		saved-params = "is-checked"
 		text = "Github"
 		command = "github"
@@ -246,8 +236,7 @@ window "infowindow"
 		size = 100x20
 		anchor1 = 81,0
 		anchor2 = 97,0
-		text-color = #99aab5
-		background-color = #492020
+		background-color = none
 		saved-params = "is-checked"
 		text = "Report Issue"
 		command = "report-issue"
@@ -255,7 +244,7 @@ window "infowindow"
 window "outputwindow"
 	elem "outputwindow"
 		type = MAIN
-		pos = 0,0
+		pos = 372,0
 		size = 640x480
 		anchor1 = none
 		anchor2 = none
@@ -293,7 +282,6 @@ window "preferences_window"
 		size = 1280x1000
 		anchor1 = none
 		anchor2 = none
-		background-color = none
 		is-visible = false
 		saved-params = "pos;size;is-minimized;is-maximized"
 		statusbar = false
@@ -303,7 +291,6 @@ window "preferences_window"
 		size = 960x1000
 		anchor1 = 0,0
 		anchor2 = 75,100
-		background-color = none
 		saved-params = ""
 	elem "character_preview_map"
 		type = MAP
@@ -317,7 +304,7 @@ window "preferences_window"
 window "statwindow"
 	elem "statwindow"
 		type = MAIN
-		pos = 0,0
+		pos = 372,0
 		size = 640x480
 		anchor1 = none
 		anchor2 = none
@@ -328,7 +315,7 @@ window "statwindow"
 	elem "stat"
 		type = INFO
 		pos = 0,0
-		size = 640x480
+		size = 636x418
 		anchor1 = 0,0
 		anchor2 = 100,100
 		text-color = #99aab5
