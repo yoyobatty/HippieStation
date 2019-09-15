@@ -80,3 +80,48 @@
 
 /obj/item/clothing/head/helmet/space/hardsuit/deathsquad
 	armor = list("melee" = 90, "bullet" = 90, "laser" = 90, "energy" = 90, "bomb" = 100, "bio" = 100, "rad" = 100, "fire" = 100, "acid" = 100)
+
+
+/obj/item/clothing/head/helmet/space/hardsuit/hev
+	name = "HEV suit helmet"
+	icon = 'hippiestation/icons/obj/clothing/hats.dmi'
+	alternate_worn_icon = 'hippiestation/icons/mob/head.dmi'
+	icon_state = "hev"
+	item_state = "hev"
+	flags_inv = HIDEHAIR|HIDEFACIALHAIR
+
+/obj/item/clothing/head/helmet/space/hardsuit/hev/attack_self(mob/user) //override so we have light but no icon change
+	on = !on
+	if(on)
+		set_light(brightness_on)
+	else
+		set_light(0)
+	for(var/X in actions)
+		var/datum/action/A = X
+		A.UpdateButtonIcon()
+
+/obj/item/clothing/suit/space/hardsuit/hev
+	name = "HEV suit"
+	icon = 'hippiestation/icons/obj/clothing/suits.dmi'
+	alternate_worn_icon = 'hippiestation/icons/mob/suit.dmi'
+	icon_state = "hev"
+	item_state = "hev"
+	helmettype = /obj/item/clothing/head/helmet/space/hardsuit/hev
+	var/msg_time_react = 0
+	var/minor_trauma_threshold = 15
+	var/major_trauma_threshold = 30
+
+/obj/item/clothing/suit/space/hardsuit/hev/hit_reaction(mob/living/carbon/human/user, atom/movable/hitby, attack_text = "the attack", final_block_chance = 0, damage = 0, attack_type = MELEE_ATTACK)
+	if(helmet.next_warn < world.time)
+		if(attack_type == MELEE_ATTACK)
+			if(damage >= minor_trauma_threshold && damage < major_trauma_threshold)
+				helmet.display_visor_message("Minor lacerations detected")
+				helmet.next_warn = world.time + WARN_COOLDOWN_TIMER
+			else if(damage >= major_trauma_threshold)
+				helmet.display_visor_message("Major lacerations detected")
+				helmet.next_warn = world.time + WARN_COOLDOWN_TIMER
+		var/obj/item/projectile/P = hitby
+		if(istype(P, /obj/item/projectile/bullet))
+			helmet.display_visor_message("Blood loss detected")
+			helmet.next_warn = world.time + WARN_COOLDOWN_TIMER
+	return ..()
