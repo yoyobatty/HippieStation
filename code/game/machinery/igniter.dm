@@ -102,10 +102,7 @@
 			icon_state = "[base_state]-d"
 		if (!src.disable)
 			user.visible_message("[user] has reconnected \the [src]!", "<span class='notice'>You fix the connection to \the [src].</span>")
-			if(src.powered())
-				icon_state = "[base_state]"
-			else
-				icon_state = "[base_state]-p"
+			update_icon()
 	else
 		return ..()
 
@@ -123,7 +120,7 @@
 		return
 
 
-	flick("[base_state]-spark", src)
+	flick("[initial(icon_state)]-spark", src)
 	spark_system.start()
 	last_spark = world.time
 	use_power(1000)
