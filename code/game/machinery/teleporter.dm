@@ -93,10 +93,6 @@
 	else
 		icon_state = "tele0"
 
-/obj/machinery/teleport/hub/power_change()
-	..()
-	update_icon()
-
 /obj/machinery/teleport/hub/proc/is_ready()
 	. = !panel_open && !(stat & (BROKEN|NOPOWER)) && power_station && power_station.engaged && !(power_station.stat & (BROKEN|NOPOWER))
 
