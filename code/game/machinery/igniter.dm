@@ -34,7 +34,7 @@
 
 	use_power(50)
 	on = !( on )
-	icon_state = "igniter[on]"
+	update_icon()
 
 /obj/machinery/igniter/process()	//ugh why is this even in process()?
 	if (src.on && !(stat & NOPOWER) )
@@ -47,11 +47,11 @@
 	. = ..()
 	icon_state = "igniter[on]"
 
-/obj/machinery/igniter/power_change()
-	if(!( stat & NOPOWER) )
-		icon_state = "igniter[src.on]"
-	else
+/obj/machinery/igniter/update_icon()
+	if(stat & NOPOWER)
 		icon_state = "igniter0"
+	else
+		icon_state = "igniter[on]"
 
 // Wall mounted remote-control igniter.
 
@@ -80,15 +80,18 @@
 	QDEL_NULL(spark_system)
 	return ..()
 
-/obj/machinery/sparker/power_change()
-	if ( powered() && disable == 0 )
-		stat &= ~NOPOWER
-		icon_state = "[base_state]"
-//		src.sd_SetLuminosity(2)
+/obj/machinery/sparker/update_icon()
+	if(disable)
+		icon_state = "[initial(icon_state)]-d"
+	else if(powered())
+		icon_state = "[initial(icon_state)]"
 	else
-		stat |= ~NOPOWER
-		icon_state = "[base_state]-p"
-//		src.sd_SetLuminosity(0)
+		icon_state = "[initial(icon_state)]-p"
+		
+/obj/machinery/sparker/powered()
+	if(!disable)
+		return FALSE
+	return ..()
 
 /obj/machinery/sparker/attackby(obj/item/W, mob/user, params)
 	if (W.tool_behaviour == TOOL_SCREWDRIVER)
