@@ -71,6 +71,10 @@
 	var/zoom_out_amt = 0
 	var/datum/action/toggle_scope_zoom/azoom
 
+	//Firemode selection
+	var/gun_firemode = GUN_FIREMODE_SEMIAUTO
+	var/list/gun_firemode_list = list(GUN_FIREMODE_SEMIAUTO)
+
 /obj/item/gun/Initialize()
 	. = ..()
 	if(pin)
@@ -78,6 +82,7 @@
 	if(gun_light)
 		alight = new(src)
 	build_zooming()
+	AddComponent(/datum/component/automatic_fire, fire_delay, fire_delay, burst_size, gun_firemode, loc)
 
 /obj/item/gun/Destroy()
 	if(isobj(pin)) //Can still be the initial path, then we skip

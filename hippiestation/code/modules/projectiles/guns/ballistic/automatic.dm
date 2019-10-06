@@ -1,3 +1,6 @@
+/obj/iem/gun/ballistic/automatic
+	gun_firemode_list = list(GUN_FIREMODE_SEMIAUTO, GUN_FIREMODE_BURSTFIRE, GUN_FIREMODE_AUTOMATIC, GUN_FIREMODE_AUTOBURST)
+
 /obj/item/gun/ballistic/automatic/c20r
 	icon = 'hippiestation/icons/obj/guns/projectile.dmi'
 
@@ -21,7 +24,7 @@
 
 /obj/item/gun/ballistic/automatic/sniper_rifle
 	icon = 'hippiestation/icons/obj/guns/projectile.dmi'
-	
+
 /obj/item/gun/ballistic/automatic/laser
 	icon = 'hippiestation/icons/obj/guns/projectile.dmi'
 

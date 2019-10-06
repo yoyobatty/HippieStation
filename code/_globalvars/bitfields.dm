@@ -179,5 +179,11 @@ GLOBAL_LIST_INIT(bitfields, list(
 		"CURABLE" = CURABLE,
 		"CAN_CARRY"	= CAN_CARRY,
 		"CAN_RESIST" = CAN_RESIST
-	)
+	),
+	"autofire_stat" = list( /*hippie edit -- full auto firing*/
+		"AUTOFIRE_STAT_SLEEPING" = AUTOFIRE_STAT_SLEEPING,
+		"AUTOFIRE_STAT_IDLE" = AUTOFIRE_STAT_IDLE,
+		"AUTOFIRE_STAT_ALERT" = AUTOFIRE_STAT_ALERT,
+		"AUTOFIRE_STAT_FIRING" = AUTOFIRE_STAT_FIRING
+	),						/*hippie edit -- full auto firing*/
 	))
