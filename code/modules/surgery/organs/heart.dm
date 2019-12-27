@@ -2,9 +2,8 @@
 	name = "heart"
 	desc = "I feel bad for the heartless bastard who lost this."
 	icon_state = "heart-on"
-	zone = "chest"
+	zone = BODY_ZONE_CHEST
 	slot = ORGAN_SLOT_HEART
-	origin_tech = "biotech=5"
 	// Heart attack code is in code/modules/mob/living/carbon/human/life.dm
 	var/beating = 1
 	var/icon_base = "heart"
@@ -54,25 +53,28 @@
 		var/sound/slowbeat = sound('sound/health/slowbeat.ogg', repeat = TRUE)
 		var/sound/fastbeat = sound('sound/health/fastbeat.ogg', repeat = TRUE)
 		var/mob/living/carbon/H = owner
-		
-		if(H.health <= HEALTH_THRESHOLD_CRIT && beat != BEAT_SLOW)
+
+		if(H.health <= H.crit_threshold && beat != BEAT_SLOW)
 			beat = BEAT_SLOW
 			H.playsound_local(get_turf(H), slowbeat,40,0, channel = CHANNEL_HEARTBEAT)
 			to_chat(owner, "<span class = 'notice'>You feel your heart slow down...</span>")
-		if(beat == BEAT_SLOW && H.health > HEALTH_THRESHOLD_CRIT)
+		if(beat == BEAT_SLOW && H.health > H.crit_threshold)
 			H.stop_sound_channel(CHANNEL_HEARTBEAT)
 			beat = BEAT_NONE
 
-		if(H.jitteriness && H.health > HEALTH_THRESHOLD_FULLCRIT && (!beat || beat == BEAT_SLOW))
-			H.playsound_local(get_turf(H),fastbeat,40,0, channel = CHANNEL_HEARTBEAT)
-			beat = BEAT_FAST
+		if(H.jitteriness)
+			if(H.health > HEALTH_THRESHOLD_FULLCRIT && (!beat || beat == BEAT_SLOW))
+				H.playsound_local(get_turf(H),fastbeat,40,0, channel = CHANNEL_HEARTBEAT)
+				beat = BEAT_FAST
+		else if(beat == BEAT_FAST)
+			H.stop_sound_channel(CHANNEL_HEARTBEAT)
+			beat = BEAT_NONE
 
 /obj/item/organ/heart/cursed
 	name = "cursed heart"
 	desc = "A heart that, when inserted, will force you to pump it manually."
 	icon_state = "cursedheart-off"
 	icon_base = "cursedheart"
-	origin_tech = "biotech=6"
 	actions_types = list(/datum/action/item_action/organ_action/cursed_heart)
 	var/last_pump = 0
 	var/add_colour = TRUE //So we're not constantly recreating colour datums
@@ -111,6 +113,10 @@
 	if(owner)
 		to_chat(owner, "<span class ='userdanger'>Your heart has been replaced with a cursed one, you have to pump this one manually otherwise you'll die!</span>")
 
+/obj/item/organ/heart/cursed/Remove(mob/living/carbon/M, special = 0)
+	..()
+	M.remove_client_colour(/datum/client_colour/cursed_heart_blood)
+
 /datum/action/item_action/organ_action/cursed_heart
 	name = "Pump your blood"
 
@@ -140,14 +146,54 @@
 
 
 /datum/client_colour/cursed_heart_blood
-	priority = 100 //it's an indicator you're dieing, so it's very high priority
+	priority = 100 //it's an indicator you're dying, so it's very high priority
 	colour = "red"
 
 /obj/item/organ/heart/cybernetic
 	name = "cybernetic heart"
-	desc = "An electronic device designed to mimic the functions of an organic human heart. Offers no benefit over an organic heart other than being easy to make."
+	desc = "An electronic device designed to mimic the functions of an organic human heart. Also holds an emergency dose of epinephrine, used automatically after facing severe trauma."
 	icon_state = "heart-c"
-	origin_tech = "biotech=5"
+	synthetic = TRUE
+	var/dose_available = TRUE
+
+	var/rid = /datum/reagent/medicine/epinephrine
+	var/ramount = 10
 
 /obj/item/organ/heart/cybernetic/emp_act()
+	. = ..()
+	if(. & EMP_PROTECT_SELF)
+		return
 	Stop()
+
+/obj/item/organ/heart/cybernetic/on_life()
+	. = ..()
+	if(dose_available && owner.stat == UNCONSCIOUS && !owner.reagents.has_reagent(rid))
+		owner.reagents.add_reagent(rid, ramount)
+		used_dose()
+
+/obj/item/organ/heart/cybernetic/proc/used_dose()
+	dose_available = FALSE
+
+/obj/item/organ/heart/cybernetic/upgraded
+	name = "upgraded cybernetic heart"
+	desc = "An electronic device designed to mimic the functions of an organic human heart. Also holds an emergency dose of epinephrine, used automatically after facing severe trauma. This upgraded model can regenerate its dose after use."
+	icon_state = "heart-c-u"
+
+/obj/item/organ/heart/cybernetic/upgraded/used_dose()
+	. = ..()
+	addtimer(VARSET_CALLBACK(src, dose_available, TRUE), 5 MINUTES)
+
+/obj/item/organ/heart/freedom
+	name = "heart of freedom"
+	desc = "This heart pumps with the passion to give... something freedom."
+	synthetic = TRUE //the power of freedom prevents heart attacks
+	var/min_next_adrenaline = 0
+
+/obj/item/organ/heart/freedom/on_life()
+	. = ..()
+	if(owner.health < 5 && world.time > min_next_adrenaline)
+		min_next_adrenaline = world.time + rand(250, 600) //anywhere from 4.5 to 10 minutes
+		to_chat(owner, "<span class='userdanger'>You feel yourself dying, but you refuse to give up!</span>")
+		owner.heal_overall_damage(15, 15, 0, BODYPART_ORGANIC)
+		if(owner.reagents.get_reagent_amount(/datum/reagent/medicine/ephedrine) < 20)
+			owner.reagents.add_reagent(/datum/reagent/medicine/ephedrine, 10)

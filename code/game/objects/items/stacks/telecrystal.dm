@@ -6,25 +6,23 @@
 	icon_state = "telecrystal"
 	w_class = WEIGHT_CLASS_TINY
 	max_amount = 50
-	flags_1 = NOBLUDGEON_1
-	origin_tech = "materials=6;syndicate=1"
+	item_flags = NOBLUDGEON
 
 /obj/item/stack/telecrystal/attack(mob/target, mob/user)
 	if(target == user) //You can't go around smacking people with crystals to find out if they have an uplink or not.
 		for(var/obj/item/implant/uplink/I in target)
 			if(I && I.imp_in)
-				I.hidden_uplink.telecrystals += amount
-				use(amount)
-				to_chat(user, "<span class='notice'>You press [src] onto yourself and charge your hidden uplink.</span>")
+				var/datum/component/uplink/hidden_uplink = I.GetComponent(/datum/component/uplink)
+				if(hidden_uplink)
+					hidden_uplink.telecrystals += amount
+					use(amount)
+					to_chat(user, "<span class='notice'>You press [src] onto yourself and charge your hidden uplink.</span>")
+	else
+		return ..()
 
 /obj/item/stack/telecrystal/afterattack(obj/item/I, mob/user, proximity)
-	if(!proximity)
-		return
-	if(isitem(I) && I.hidden_uplink && I.hidden_uplink.active) //No metagaming by using this on every PDA around just to see if it gets used up.
-		I.hidden_uplink.telecrystals += amount
-		use(amount)
-		to_chat(user, "<span class='notice'>You slot [src] into [I] and charge its internal uplink.</span>")
-	else if(istype(I, /obj/item/cartridge/virus/frame))
+	. = ..()
+	if(istype(I, /obj/item/cartridge/virus/frame))
 		var/obj/item/cartridge/virus/frame/cart = I
 		if(!cart.charges)
 			to_chat(user, "<span class='notice'>[cart] is out of charges, it's refusing to accept [src].</span>")

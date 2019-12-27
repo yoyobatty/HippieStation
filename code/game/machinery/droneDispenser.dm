@@ -8,7 +8,6 @@
 
 	icon = 'icons/obj/machines/droneDispenser.dmi'
 	icon_state = "on"
-	anchored = TRUE
 	density = TRUE
 
 	max_integrity = 250
@@ -51,7 +50,7 @@
 
 /obj/machinery/droneDispenser/Initialize()
 	. = ..()
-	var/datum/component/material_container/materials = AddComponent(/datum/component/material_container, list(MAT_METAL, MAT_GLASS), MINERAL_MATERIAL_AMOUNT * MAX_STACK_SIZE * 2, TRUE)
+	var/datum/component/material_container/materials = AddComponent(/datum/component/material_container, list(MAT_METAL, MAT_GLASS), MINERAL_MATERIAL_AMOUNT * MAX_STACK_SIZE * 2, TRUE, /obj/item/stack)
 	materials.insert_amount(starting_amount)
 	materials.precise_insertion = TRUE
 	using_materials = list(MAT_METAL=metal_cost, MAT_GLASS=glass_cost)
@@ -106,25 +105,6 @@
 	end_create_message = "slams open, revealing a hivebot!"
 	recharge_sound = null
 	recharge_message = null
-	var/static/list/hivebot_dispensable_types = list(/mob/living/simple_animal/hostile/hivebot, /mob/living/simple_animal/hostile/hivebot/range, /mob/living/simple_animal/hostile/hivebot/rapid)
-
-/obj/machinery/droneDispenser/hivebot/invasion
-	name = "invasion fabricator"
-	desc = "A huge machine designed to withstand intense pressures. It whirs with activity as steam hisses from vents in its sides."
-	production_time = 10
-	dispense_type = /mob/living/simple_animal/hostile/hivebot
-	work_sound = 'sound/machines/copier.ogg'
-	begin_create_message = "closes, humming and whirring..."
-	end_create_message = "slams open, revealing a hivebot!"
-	recharge_sound = null
-	recharge_message = null
-
-/obj/machinery/droneDispenser/hivebot/invasion/Dispense()
-	dispense_type = pick(hivebot_dispensable_types)
-	return ..()
-
-/obj/machinery/droneDispenser/hivebot/invasion/ex_act(severity)
-	return //hivebot don give a fuck about bombs
 
 /obj/machinery/droneDispenser/swarmer
 	name = "swarmer fabricator"
@@ -149,28 +129,16 @@
 	break_message = "slowly falls dark, lights stuttering."
 
 /obj/machinery/droneDispenser/examine(mob/user)
-	..()
+	. = ..()
 	if((mode == DRONE_RECHARGING) && !stat && recharging_text)
-		to_chat(user, "<span class='warning'>[recharging_text]</span>")
-
-/obj/machinery/droneDispenser/power_change()
-	..()
-	if(powered())
-		stat &= ~NOPOWER
-	else
-		stat |= NOPOWER
-	update_icon()
-
-/obj/machinery/droneDispenser/proc/Dispense()
-	var/atom/A = new dispense_type(get_turf(src))
-	A.admin_spawned = admin_spawned
+		. += "<span class='warning'>[recharging_text]</span>"
 
 /obj/machinery/droneDispenser/process()
 	..()
 	if((stat & (NOPOWER|BROKEN)) || !anchored)
 		return
 
-	GET_COMPONENT(materials, /datum/component/material_container)
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	if(!materials.has_materials(using_materials))
 		return // We require more minerals
 
@@ -195,8 +163,9 @@
 			materials.use_amount(using_materials)
 			if(power_used)
 				use_power(power_used)
-			
-			Dispense()
+
+			var/atom/A = new dispense_type(loc)
+			A.flags_1 |= (flags_1 & ADMIN_SPAWNED_1)
 
 			if(create_sound)
 				playsound(src, create_sound, 50, 1)
@@ -232,35 +201,26 @@
 	else
 		icon_state = icon_on
 
-/obj/machinery/droneDispenser/attackby(obj/item/O, mob/living/user)
-	if(istype(O, /obj/item/crowbar))
-		GET_COMPONENT(materials, /datum/component/material_container)
+/obj/machinery/droneDispenser/attackby(obj/item/I, mob/living/user)
+	if(I.tool_behaviour == TOOL_CROWBAR)
+		var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 		materials.retrieve_all()
-		playsound(loc, O.usesound, 50, 1)
+		I.play_tool_sound(src)
 		to_chat(user, "<span class='notice'>You retrieve the materials from [src].</span>")
 
-	else if(istype(O, /obj/item/weldingtool))
+	else if(I.tool_behaviour == TOOL_WELDER)
 		if(!(stat & BROKEN))
 			to_chat(user, "<span class='warning'>[src] doesn't need repairs.</span>")
 			return
 
-		var/obj/item/weldingtool/WT = O
-
-		if(!WT.isOn())
+		if(!I.tool_start_check(user, amount=1))
 			return
 
-		if(WT.get_fuel() < 1)
-			to_chat(user, "<span class='warning'>You need more fuel to complete this task!</span>")
-			return
-
-		playsound(src, WT.usesound, 50, 1)
 		user.visible_message(
-			"<span class='notice'>[user] begins patching up [src] with [WT].</span>",
+			"<span class='notice'>[user] begins patching up [src] with [I].</span>",
 			"<span class='notice'>You begin restoring the damage to [src]...</span>")
 
-		if(!do_after(user, 40*O.toolspeed, target = src))
-			return
-		if(!src || !WT.remove_fuel(1, user))
+		if(!I.use_tool(src, user, 40, volume=50, amount=1))
 			return
 
 		user.visible_message(

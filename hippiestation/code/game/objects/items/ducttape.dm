@@ -6,6 +6,7 @@
 	w_class = WEIGHT_CLASS_SMALL
 	gas_transfer_coefficient = 0.90
 	strip_delay = 10
+	modifies_speech = TRUE
 	var/used = FALSE
 
 /obj/item/clothing/mask/hippie/tape/attack_hand(mob/user as mob)
@@ -38,9 +39,8 @@
 		user.emote("scream")
 		qdel(src)
 
-/obj/item/clothing/mask/hippie/tape/speechModification(message)
-	var/M = muffledspeech(message)
-	return M
+/obj/item/clothing/mask/hippie/tape/handle_speech(datum/source, list/speech_args)
+	speech_args[SPEECH_MESSAGE] = muffledspeech(speech_args[SPEECH_MESSAGE])
 
 /obj/item/stack/ducttape
 	desc = "It's duct tape. You can use it to tape something... or someone."
@@ -51,7 +51,7 @@
 	icon_state = "tape"
 	item_state = "tape"
 	amount = 15
-	flags_1 = NOBLUDGEON_1
+	item_flags = NOBLUDGEON
 	max_amount = 15
 	throwforce = 0
 	w_class = 2.0
@@ -98,12 +98,12 @@
 		to_chat(user, "<span class='notice'>You start tape [H]'s mouth shut.</span>")
 		if(do_mob(user, H, 20))
 			// H.wear_mask = new/obj/item/clothing/mask/hippie/tape(H)
-			H.equip_to_slot_or_del(new /obj/item/clothing/mask/hippie/tape(H), slot_wear_mask)
+			H.equip_to_slot_or_del(new /obj/item/clothing/mask/hippie/tape(H), SLOT_WEAR_MASK)
 			to_chat(user, "<span class='notice'>You tape [H]'s mouth shut.</span>")
 			playsound(loc, 'hippiestation/sound/misc/ducttape1.ogg', 50, 1)
 			if(src.use(2) == 0)
 				user.dropItemToGround(src)
 				qdel(src)
-			add_logs(user, H, "mouth-taped")
+			log_combat(user, H, "mouth-taped")
 		else
 			to_chat(user, "<span class='warning'>You fail to tape [H]'s mouth shut.</span>")

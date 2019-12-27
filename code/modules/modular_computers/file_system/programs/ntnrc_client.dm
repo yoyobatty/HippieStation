@@ -34,12 +34,12 @@
 			if(!message || !channel)
 				return
 			channel.add_message(message, username)
-			log_talk(user,"[key_name(user)] as [username] sent to [channel.title]: [message]",LOGCHAT)
+			user.log_talk(message, LOG_CHAT, tag="as [username] to channel [channel.title]")
 
 		if("PRG_joinchannel")
 			. = 1
 			var/datum/ntnet_conversation/C
-			for(var/datum/ntnet_conversation/chan in GLOB.ntnet_global.chat_channels)
+			for(var/datum/ntnet_conversation/chan in SSnetworks.station_network.chat_channels)
 				if(chan.id == text2num(params["id"]))
 					C = chan
 					break
@@ -126,7 +126,6 @@
 				if(!computer)
 					// This program shouldn't even be runnable without computer.
 					CRASH("Var computer is null!")
-					return 1
 				if(!hard_drive)
 					computer.visible_message("\The [computer] shows an \"I/O Error - Hard drive connection error\" warning.")
 				else	// In 99.9% cases this will mean our HDD is full
@@ -183,7 +182,7 @@
 	..()
 
 /datum/computer_file/program/chatclient/ui_data(mob/user)
-	if(!GLOB.ntnet_global || !GLOB.ntnet_global.chat_channels)
+	if(!SSnetworks.station_network || !SSnetworks.station_network.chat_channels)
 		return
 
 	var/list/data = list()
@@ -212,7 +211,7 @@
 
 	else // Channel selection screen
 		var/list/all_channels[0]
-		for(var/C in GLOB.ntnet_global.chat_channels)
+		for(var/C in SSnetworks.station_network.chat_channels)
 			var/datum/ntnet_conversation/conv = C
 			if(conv && conv.title)
 				all_channels.Add(list(list(

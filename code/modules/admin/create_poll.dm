@@ -4,7 +4,7 @@
 	if(!check_rights(R_POLL))
 		return
 	if(!SSdbcore.Connect())
-		to_chat(src, "<span class='danger'>Failed to establish database connection.</span>")
+		to_chat(src, "<span class='danger'>Failed to establish database connection.</span>", confidential=TRUE)
 		return
 	var/polltype = input("Choose poll type.","Poll Type") as null|anything in list("Single Option","Text Reply","Rating","Multiple Choice", "Instant Runoff Voting")
 	var/choice_amount = 0
@@ -20,7 +20,7 @@
 			choice_amount = input("How many choices should be allowed?","Select choice amount") as num|null
 			switch(choice_amount)
 				if(0)
-					to_chat(src, "Multiple choice poll must have at least one choice allowed.")
+					to_chat(src, "Multiple choice poll must have at least one choice allowed.", confidential=TRUE)
 					return
 				if(1)
 					polltype = POLLTYPE_OPTION
@@ -36,14 +36,17 @@
 		return
 	endtime = sanitizeSQL(endtime)
 	var/datum/DBQuery/query_validate_time = SSdbcore.NewQuery("SELECT IF(STR_TO_DATE('[endtime]','%Y-%c-%d %T') > NOW(), STR_TO_DATE('[endtime]','%Y-%c-%d %T'), 0)")
-	if(!query_validate_time.warn_execute())
+	if(!query_validate_time.warn_execute() || QDELETED(usr) || !src)
+		qdel(query_validate_time)
 		return
 	if(query_validate_time.NextRow())
 		var/checktime = text2num(query_validate_time.item[1])
 		if(!checktime)
-			to_chat(src, "Datetime entered is improperly formatted or not later than current server time.")
+			to_chat(src, "Datetime entered is improperly formatted or not later than current server time.", confidential=TRUE)
+			qdel(query_validate_time)
 			return
 		endtime = query_validate_time.item[1]
+	qdel(query_validate_time)
 	var/adminonly
 	switch(alert("Admin only poll?",,"Yes","No","Cancel"))
 		if("Yes")
@@ -73,7 +76,7 @@
 			if(!option)
 				return
 			option = sanitizeSQL(option)
-			var/default_percentage_calc
+			var/default_percentage_calc = 0
 			if(polltype != POLLTYPE_IRV)
 				switch(alert("Should this option be included by default when poll result percentages are generated?",,"Yes","No","Cancel"))
 					if("Yes")
@@ -97,7 +100,7 @@
 				if(maxval)
 					maxval = sanitizeSQL(maxval)
 				if(minval >= maxval)
-					to_chat(src, "Maximum rating value can't be less than or equal to minimum rating value")
+					to_chat(src, "Maximum rating value can't be less than or equal to minimum rating value", confidential=TRUE)
 					continue
 				else if(maxval == null)
 					return
@@ -124,18 +127,24 @@
 					add_option = 0
 				else
 					return 0
+	var/m1 = "[key_name(usr)] has created a new server poll. Poll type: [polltype] - Admin Only: [adminonly ? "Yes" : "No"] - Question: [question]"
+	var/m2 = "[key_name_admin(usr)] has created a new server poll. Poll type: [polltype] - Admin Only: [adminonly ? "Yes" : "No"]<br>Question: [question]"
 	var/datum/DBQuery/query_polladd_question = SSdbcore.NewQuery("INSERT INTO [format_table_name("poll_question")] (polltype, starttime, endtime, question, adminonly, multiplechoiceoptions, createdby_ckey, createdby_ip, dontshow) VALUES ('[polltype]', '[starttime]', '[endtime]', '[question]', '[adminonly]', '[choice_amount]', '[sql_ckey]', INET_ATON('[address]'), '[dontshow]')")
 	if(!query_polladd_question.warn_execute())
+		qdel(query_polladd_question)
 		return
+	qdel(query_polladd_question)
 	if(polltype != POLLTYPE_TEXT)
 		var/pollid = 0
 		var/datum/DBQuery/query_get_id = SSdbcore.NewQuery("SELECT LAST_INSERT_ID()")
 		if(!query_get_id.warn_execute())
+			qdel(query_get_id)
 			return
 		if(query_get_id.NextRow())
 			pollid = query_get_id.item[1]
+		qdel(query_get_id)
 		for(var/list/i in sql_option_list)
 			i |= list("pollid" = "'[pollid]'")
 		SSdbcore.MassInsert(format_table_name("poll_option"), sql_option_list, warn = 1)
-	log_admin("[key_name(usr)] has created a new server poll. Poll type: [polltype] - Admin Only: [adminonly ? "Yes" : "No"] - Question: [question]")
-	message_admins("[key_name_admin(usr)] has created a new server poll. Poll type: [polltype] - Admin Only: [adminonly ? "Yes" : "No"]<br>Question: [question]")
+	log_admin(m1)
+	message_admins(m2)

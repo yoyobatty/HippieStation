@@ -1,18 +1,12 @@
 
 ////////////////////////////////
 /proc/message_admins(msg)
-	msg = "<span class=\"admin\"><span class=\"prefix\">ADMIN LOG:</span> <span class=\"message\">[msg]</span></span>"
-	for(var/X in GLOB.admins)
-		var/client/C = X
-		if(check_rights_for(C, R_ADMIN))
-			to_chat(C, msg)
+	msg = "<span class=\"admin\"><span class=\"prefix\">ADMIN LOG:</span> <span class=\"message linkify\">[msg]</span></span>"
+	to_chat(GLOB.admins, msg, confidential=TRUE)
 
 /proc/relay_msg_admins(msg)
-	msg = "<span class=\"admin\"><span class=\"prefix\">RELAY:</span> <span class=\"message\">[msg]</span></span>"
-	for(var/X in GLOB.admins)
-		var/client/C = X
-		if(check_rights_for(C, R_ADMIN))
-			to_chat(C, msg)
+	msg = "<span class=\"admin\"><span class=\"prefix\">RELAY:</span> <span class=\"message linkify\">[msg]</span></span>"
+	to_chat(GLOB.admins, msg, confidential=TRUE)
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////Panels
@@ -25,18 +19,17 @@
 	if(!check_rights())
 		return
 
-	if(!isobserver(usr))
-		log_game("[key_name_admin(usr)] checked the player panel while in game.")
+	log_admin("[key_name(usr)] checked the individual player panel for [key_name(M)][isobserver(usr)?"":" while in game"].")
 
 	if(!M)
-		to_chat(usr, "You seem to be selecting a mob that doesn't exist anymore.")
+		to_chat(usr, "You seem to be selecting a mob that doesn't exist anymore.", confidential=TRUE)
 		return
 
 	var/body = "<html><head><title>Options for [M.key]</title></head>"
 	body += "<body>Options panel for <b>[M]</b>"
 	if(M.client)
 		body += " played by <b>[M.client]</b> "
-		body += "\[<A href='?_src_=holder;[HrefToken()];editrights=rank;ckey=[M.ckey]'>[M.client.holder ? M.client.holder.rank : "Player"]</A>\]"
+		body += "\[<A href='?_src_=holder;[HrefToken()];editrights=[(GLOB.admin_datums[M.client.ckey] || GLOB.deadmins[M.client.ckey]) ? "rank" : "add"];key=[M.key]'>[M.client.holder ? M.client.holder.rank : "Player"]</A>\]"
 		if(CONFIG_GET(flag/use_exp_tracking))
 			body += "\[<A href='?_src_=holder;[HrefToken()];getplaytimewindow=[REF(M)]'>" + M.client.get_exp_living() + "</a>\]"
 
@@ -47,33 +40,53 @@
 
 	if(M.client)
 		body += "<br>\[<b>First Seen:</b> [M.client.player_join_date]\]\[<b>Byond account registered on:</b> [M.client.account_join_date]\]"
+		body += "<br><b>Player country:</b> [M.client.country]" // hippie -- geoip crap
 		body += "<br><br><b>Show related accounts by:</b> "
 		body += "\[ <a href='?_src_=holder;[HrefToken()];showrelatedacc=cid;client=[REF(M.client)]'>CID</a> | "
 		body += "<a href='?_src_=holder;[HrefToken()];showrelatedacc=ip;client=[REF(M.client)]'>IP</a> \]"
+		// hippie start -- warning when player has related accounts
+		if (M.client.related_accounts_cid || M.client.related_accounts_ip)
+			body += "<br><b><font color=red>Player has related accounts</font></b>"
+		// hippie end	
+		var/rep = 0
+		rep += SSpersistence.antag_rep[M.ckey]
+		body += "<br><br>Antagonist reputation: [rep]"
+		body += "<br><a href='?_src_=holder;[HrefToken()];modantagrep=add;mob=[REF(M)]'>\[increase\]</a> "
+		body += "<a href='?_src_=holder;[HrefToken()];modantagrep=subtract;mob=[REF(M)]'>\[decrease\]</a> "
+		body += "<a href='?_src_=holder;[HrefToken()];modantagrep=set;mob=[REF(M)]'>\[set\]</a> "
+		body += "<a href='?_src_=holder;[HrefToken()];modantagrep=zero;mob=[REF(M)]'>\[zero\]</a>"
+		var/full_version = "Unknown"
+		if(M.client.byond_version)
+			full_version = "[M.client.byond_version].[M.client.byond_build ? M.client.byond_build : "xxx"]"
+		body += "<br>\[<b>Byond version:</b> [full_version]\]<br>"
 
 
 	body += "<br><br>\[ "
 	body += "<a href='?_src_=vars;[HrefToken()];Vars=[REF(M)]'>VV</a> - "
-	body += "<a href='?_src_=holder;[HrefToken()];traitor=[REF(M)]'>TP</a> - "
+	if(M.mind)
+		body += "<a href='?_src_=holder;[HrefToken()];traitor=[REF(M)]'>TP</a> - "
+	else
+		body += "<a href='?_src_=holder;[HrefToken()];initmind=[REF(M)]'>Init Mind</a> - "
+	if (iscyborg(M))
+		body += "<a href='?_src_=holder;[HrefToken()];borgpanel=[REF(M)]'>BP</a> - "
 	body += "<a href='?priv_msg=[M.ckey]'>PM</a> - "
 	body += "<a href='?_src_=holder;[HrefToken()];subtlemessage=[REF(M)]'>SM</a> - "
+	if (ishuman(M) && M.mind)
+		body += "<a href='?_src_=holder;[HrefToken()];HeadsetMessage=[REF(M)]'>HM</a> - "
 	body += "<a href='?_src_=holder;[HrefToken()];adminplayerobservefollow=[REF(M)]'>FLW</a> - "
-	body += "<a href='?_src_=holder;[HrefToken()];individuallog=[REF(M)]'>LOGS</a>\] <br>"
+	//Default to client logs if available
+	var/source = LOGSRC_MOB
+	if(M.client)
+		source = LOGSRC_CLIENT
+	body += "<a href='?_src_=holder;[HrefToken()];individuallog=[REF(M)];log_src=[source]'>LOGS</a>\] <br>"
 
 	body += "<b>Mob type</b> = [M.type]<br><br>"
 
 	body += "<A href='?_src_=holder;[HrefToken()];boot2=[REF(M)]'>Kick</A> | "
-	body += "<A href='?_src_=holder;[HrefToken()];newban=[REF(M)]'>Ban</A> | "
-	body += "<A href='?_src_=holder;[HrefToken()];jobban2=[REF(M)]'>Jobban</A> | "
-	body += "<A href='?_src_=holder;[HrefToken()];appearanceban=[REF(M)]'>Identity Ban</A> | "
-	if(jobban_isbanned(M, "OOC"))
-		body+= "<A href='?_src_=holder;[HrefToken()];jobban3=OOC;jobban4=[REF(M)]'><font color=red>OOCBan</font></A> | "
+	if(M.client)
+		body += "<A href='?_src_=holder;[HrefToken()];newbankey=[M.key];newbanip=[M.client.address];newbancid=[M.client.computer_id]'>Ban</A> | "
 	else
-		body+= "<A href='?_src_=holder;[HrefToken()];jobban3=OOC;jobban4=[REF(M)]'>OOCBan</A> | "
-	if(jobban_isbanned(M, "emote"))
-		body+= "<A href='?_src_=holder;[HrefToken()];jobban3=emote;jobban4=[REF(M)]'><font color=red>EmoteBan</font></A> | "
-	else
-		body+= "<A href='?_src_=holder;[HrefToken()];jobban3=emote;jobban4=[REF(M)]'>Emoteban</A> | "
+		body += "<A href='?_src_=holder;[HrefToken()];newbankey=[M.key]'>Ban</A> | "
 
 	body += "<A href='?_src_=holder;[HrefToken()];showmessageckey=[M.ckey]'>Notes | Messages | Watchlist</A> | "
 	if(M.client)
@@ -175,11 +188,13 @@
 		body += "<A href='?_src_=holder;[HrefToken()];tdomeadmin=[REF(M)]'>Thunderdome Admin</A> | "
 		body += "<A href='?_src_=holder;[HrefToken()];tdomeobserve=[REF(M)]'>Thunderdome Observer</A> | "
 
+	body += usr.client.HippiePPoptions(M) // hippie -- Hippie player panel custom options
+
 	body += "<br>"
 	body += "</body></html>"
 
 	usr << browse(body, "window=adminplayeropts-[REF(M)];size=550x515")
-	SSblackbox.add_details("admin_verb","Player Panel") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Player Panel") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 
 /datum/admins/proc/access_news_network() //MARKER
@@ -190,7 +205,7 @@
 	if (!istype(src, /datum/admins))
 		src = usr.client.holder
 	if (!istype(src, /datum/admins))
-		to_chat(usr, "Error: you are not an admin!")
+		to_chat(usr, "Error: you are not an admin!", confidential=TRUE)
 		return
 	var/dat
 	dat = text("<HEAD><TITLE>Admin Newscaster</TITLE></HEAD><H3>Admin Newscaster Unit</H3>")
@@ -223,7 +238,7 @@
 					if(CHANNEL.is_admin_channel)
 						dat+="<B><FONT style='BACKGROUND-COLOR: LightGreen'><A href='?src=[REF(src)];ac_show_channel=[REF(CHANNEL)]'>[CHANNEL.channel_name]</A></FONT></B><BR>"
 					else
-						dat+="<B><A href='?src=[REF(src)];[HrefToken()];ac_show_channel=[REF(CHANNEL)]'>[CHANNEL.channel_name]</A> [(CHANNEL.censored) ? ("<FONT COLOR='red'>***</FONT>") : ()]<BR></B>"
+						dat+="<B><A href='?src=[REF(src)];[HrefToken()];ac_show_channel=[REF(CHANNEL)]'>[CHANNEL.channel_name]</A> [(CHANNEL.censored) ? ("<FONT COLOR='red'>***</FONT>") : ""]<BR></B>"
 			dat+="<BR><HR><A href='?src=[REF(src)];[HrefToken()];ac_refresh=1'>Refresh</A>"
 			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_setScreen=[0]'>Back</A>"
 		if(2)
@@ -231,13 +246,13 @@
 			dat+="<HR><B><A href='?src=[REF(src)];[HrefToken()];ac_set_channel_name=1'>Channel Name</A>:</B> [src.admincaster_feed_channel.channel_name]<BR>"
 			dat+="<B><A href='?src=[REF(src)];[HrefToken()];ac_set_signature=1'>Channel Author</A>:</B> <FONT COLOR='green'>[src.admin_signature]</FONT><BR>"
 			dat+="<B><A href='?src=[REF(src)];[HrefToken()];ac_set_channel_lock=1'>Will Accept Public Feeds</A>:</B> [(src.admincaster_feed_channel.locked) ? ("NO") : ("YES")]<BR><BR>"
-			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_submit_new_channel=1'>Submit</A><BR><BR><A href='?src=[REF(src)];ac_setScreen=[0]'>Cancel</A><BR>"
+			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_submit_new_channel=1'>Submit</A><BR><BR><A href='?src=[REF(src)];[HrefToken()];ac_setScreen=[0]'>Cancel</A><BR>"
 		if(3)
 			dat+="Creating new Feed Message..."
 			dat+="<HR><B><A href='?src=[REF(src)];[HrefToken()];ac_set_channel_receiving=1'>Receiving Channel</A>:</B> [src.admincaster_feed_channel.channel_name]<BR>" //MARK
 			dat+="<B>Message Author:</B> <FONT COLOR='green'>[src.admin_signature]</FONT><BR>"
 			dat+="<B><A href='?src=[REF(src)];[HrefToken()];ac_set_new_message=1'>Message Body</A>:</B> [src.admincaster_feed_message.returnBody(-1)] <BR>"
-			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_submit_new_message=1'>Submit</A><BR><BR><A href='?src=[REF(src)];ac_setScreen=[0]'>Cancel</A><BR>"
+			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_submit_new_message=1'>Submit</A><BR><BR><A href='?src=[REF(src)];[HrefToken()];ac_setScreen=[0]'>Cancel</A><BR>"
 		if(4)
 			dat+="Feed story successfully submitted to [src.admincaster_feed_channel.channel_name].<BR><BR>"
 			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_setScreen=[0]'>Return</A><BR>"
@@ -295,7 +310,7 @@
 				dat+="<I>No feed channels found active...</I><BR>"
 			else
 				for(var/datum/newscaster/feed_channel/CHANNEL in GLOB.news_network.network_channels)
-					dat+="<A href='?src=[REF(src)];[HrefToken()];ac_pick_censor_channel=[REF(CHANNEL)]'>[CHANNEL.channel_name]</A> [(CHANNEL.censored) ? ("<FONT COLOR='red'>***</FONT>") : ()]<BR>"
+					dat+="<A href='?src=[REF(src)];[HrefToken()];ac_pick_censor_channel=[REF(CHANNEL)]'>[CHANNEL.channel_name]</A> [(CHANNEL.censored) ? ("<FONT COLOR='red'>***</FONT>") : ""]<BR>"
 			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_setScreen=[0]'>Cancel</A>"
 		if(11)
 			dat+="<B>Nanotrasen D-Notice Handler</B><HR>"
@@ -306,7 +321,7 @@
 				dat+="<I>No feed channels found active...</I><BR>"
 			else
 				for(var/datum/newscaster/feed_channel/CHANNEL in GLOB.news_network.network_channels)
-					dat+="<A href='?src=[REF(src)];[HrefToken()];ac_pick_d_notice=[REF(CHANNEL)]'>[CHANNEL.channel_name]</A> [(CHANNEL.censored) ? ("<FONT COLOR='red'>***</FONT>") : ()]<BR>"
+					dat+="<A href='?src=[REF(src)];[HrefToken()];ac_pick_d_notice=[REF(CHANNEL)]'>[CHANNEL.channel_name]</A> [(CHANNEL.censored) ? ("<FONT COLOR='red'>***</FONT>") : ""]<BR>"
 
 			dat+="<BR><A href='?src=[REF(src)];[HrefToken()];ac_setScreen=[0]'>Back</A>"
 		if(12)
@@ -318,7 +333,7 @@
 			else
 				for(var/datum/newscaster/feed_message/MESSAGE in src.admincaster_feed_channel.messages)
 					dat+="-[MESSAGE.returnBody(-1)] <BR><FONT SIZE=1>\[Story by <FONT COLOR='maroon'>[MESSAGE.returnAuthor(-1)]</FONT>\]</FONT><BR>"
-					dat+="<FONT SIZE=2><A href='?src=[REF(src)];[HrefToken()];ac_censor_channel_story_body=[REF(MESSAGE)]'>[(MESSAGE.bodyCensor) ? ("Undo story censorship") : ("Censor story")]</A>  -  <A href='?src=[REF(src)];ac_censor_channel_story_author=[REF(MESSAGE)]'>[(MESSAGE.authorCensor) ? ("Undo Author Censorship") : ("Censor message Author")]</A></FONT><BR>"
+					dat+="<FONT SIZE=2><A href='?src=[REF(src)];[HrefToken()];ac_censor_channel_story_body=[REF(MESSAGE)]'>[(MESSAGE.bodyCensor) ? ("Undo story censorship") : ("Censor story")]</A>  -  <A href='?src=[REF(src)];[HrefToken()];ac_censor_channel_story_author=[REF(MESSAGE)]'>[(MESSAGE.authorCensor) ? ("Undo Author Censorship") : ("Censor message Author")]</A></FONT><BR>"
 					dat+="[MESSAGE.comments.len] comment[MESSAGE.comments.len > 1 ? "s" : ""]: <a href='?src=[REF(src)];[HrefToken()];ac_lock_comment=[REF(MESSAGE)]'>[MESSAGE.locked ? "Unlock" : "Lock"]</a><br>"
 					for(var/datum/newscaster/feed_comment/comment in MESSAGE.comments)
 						dat+="[comment.body] <a href='?src=[REF(src)];[HrefToken()];ac_del_comment=[REF(comment)];ac_del_comment_msg=[REF(MESSAGE)]'>X</a><br><font size=1>[comment.author] [comment.time_stamp]</font><br>"
@@ -400,7 +415,24 @@
 		"}
 	if(GLOB.master_mode == "secret")
 		dat += "<A href='?src=[REF(src)];[HrefToken()];f_secret=1'>(Force Secret Mode)</A><br>"
-
+	if(GLOB.master_mode == "dynamic")
+		if(SSticker.current_state <= GAME_STATE_PREGAME)
+			dat += "<A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart=1'>(Force Roundstart Rulesets)</A><br>"
+			if (GLOB.dynamic_forced_roundstart_ruleset.len > 0)
+				for(var/datum/dynamic_ruleset/roundstart/rule in GLOB.dynamic_forced_roundstart_ruleset)
+					dat += {"<A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_remove=\ref[rule]'>-> [rule.name] <-</A><br>"}
+				dat += "<A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_clear=1'>(Clear Rulesets)</A><br>"
+			dat += "<A href='?src=[REF(src)];[HrefToken()];f_dynamic_options=1'>(Dynamic mode options)</A><br>"
+		else if (SSticker.IsRoundInProgress())
+			dat += "<A href='?src=[REF(src)];[HrefToken()];f_dynamic_latejoin=1'>(Force Next Latejoin Ruleset)</A><br>"
+			if (SSticker && SSticker.mode && istype(SSticker.mode,/datum/game_mode/dynamic))
+				var/datum/game_mode/dynamic/mode = SSticker.mode
+				if (mode.forced_latejoin_rule)
+					dat += {"<A href='?src=[REF(src)];[HrefToken()];f_dynamic_latejoin_clear=1'>-> [mode.forced_latejoin_rule.name] <-</A><br>"}
+			dat += "<A href='?src=[REF(src)];[HrefToken()];f_dynamic_midround=1'>(Execute Midround Ruleset!)</A><br>"
+		dat += "<hr/>"
+	if(SSticker.IsRoundInProgress())
+		dat += "<a href='?src=[REF(src)];[HrefToken()];gamemode_panel=1'>(Game Mode Panel)</a><BR>"
 	dat += {"
 		<BR>
 		<A href='?src=[REF(src)];[HrefToken()];create_object=1'>Create Object</A><br>
@@ -412,7 +444,7 @@
 	if(marked_datum && istype(marked_datum, /atom))
 		dat += "<A href='?src=[REF(src)];[HrefToken()];dupe_marked_datum=1'>Duplicate Marked Datum</A><br>"
 
-	usr << browse(dat, "window=admin2;size=210x200")
+	usr << browse(dat, "window=admin2;size=240x280")
 	return
 
 /////////////////////////////////////////////////////////////////////////////////////////////////admins2.dm merge
@@ -427,7 +459,7 @@
 		return
 
 	var/list/options = list("Regular Restart", "Hard Restart (No Delay/Feeback Reason)", "Hardest Restart (No actions, just reboot)")
-	if(SERVER_TOOLS_PRESENT)
+	if(world.TgsAvailable())
 		options += "Server Restart (Kill and restart DD)";
 
 	var/rebootconfirm
@@ -439,7 +471,7 @@
 	if(rebootconfirm)
 		var/result = input(usr, "Select reboot method", "World Reboot", options[1]) as null|anything in options
 		if(result)
-			SSblackbox.add_details("admin_verb","Reboot World") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+			SSblackbox.record_feedback("tally", "admin_verb", 1, "Reboot World") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 			var/init_by = "Initiated by [usr.client.holder.fakekey ? "Admin" : usr.key]."
 			switch(result)
 				if("Regular Restart")
@@ -452,7 +484,7 @@
 					world.Reboot(fast_track = TRUE)
 				if("Server Restart (Kill and restart DD)")
 					to_chat(world, "Server restart - [init_by]")
-					SERVER_TOOLS_REBOOT_BYOND
+					world.TgsEndProcess()
 
 /datum/admins/proc/end_round()
 	set category = "Server"
@@ -466,7 +498,7 @@
 		return
 	if(confirm == "Yes")
 		SSticker.force_ending = 1
-		SSblackbox.add_details("admin_verb","End Round") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+		SSblackbox.record_feedback("tally", "admin_verb", 1, "End Round") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 
 /datum/admins/proc/announce()
@@ -482,7 +514,7 @@
 			message = adminscrub(message,500)
 		to_chat(world, "<span class='adminnotice'><b>[usr.client.holder.fakekey ? "Administrator" : usr.key] Announces:</b></span>\n \t [message]")
 		log_admin("Announce: [key_name(usr)] : [message]")
-	SSblackbox.add_details("admin_verb","Announce") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Announce") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/set_admin_notice()
 	set category = "Special Verbs"
@@ -503,7 +535,7 @@
 		message_admins("[key_name(usr)] set the admin notice.")
 		log_admin("[key_name(usr)] set the admin notice:\n[new_admin_notice]")
 		to_chat(world, "<span class ='adminnotice'><b>Admin Notice:</b>\n \t [new_admin_notice]</span>")
-	SSblackbox.add_details("admin_verb","Set Admin Notice") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Set Admin Notice") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 	GLOB.admin_notice = new_admin_notice
 	return
 
@@ -514,7 +546,7 @@
 	toggle_ooc()
 	log_admin("[key_name(usr)] toggled OOC.")
 	message_admins("[key_name_admin(usr)] toggled OOC.")
-	SSblackbox.add_details("admin_toggle","Toggle OOC|[GLOB.ooc_allowed]") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Toggle OOC", "[GLOB.ooc_allowed ? "Enabled" : "Disabled"]")) //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/toggleoocdead()
 	set category = "Server"
@@ -524,7 +556,7 @@
 
 	log_admin("[key_name(usr)] toggled OOC.")
 	message_admins("[key_name_admin(usr)] toggled Dead OOC.")
-	SSblackbox.add_details("admin_toggle","Toggle Dead OOC|[GLOB.dooc_allowed]") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Toggle Dead OOC", "[GLOB.dooc_allowed ? "Enabled" : "Disabled"]")) //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/startnow()
 	set category = "Server"
@@ -539,10 +571,10 @@
 				started as soon as possible.)"
 		message_admins("<font color='blue'>\
 			[usr.key] has started the game.[msg]</font>")
-		SSblackbox.add_details("admin_verb","Start Now") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+		SSblackbox.record_feedback("tally", "admin_verb", 1, "Start Now") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 		return 1
 	else
-		to_chat(usr, "<font color='red'>Error: Start Now: Game has already started.</font>")
+		to_chat(usr, "<font color='red'>Error: Start Now: Game has already started.</font>", confidential=TRUE)
 
 	return 0
 
@@ -558,7 +590,7 @@
 	log_admin("[key_name(usr)] toggled new player game entering.")
 	message_admins("<span class='adminnotice'>[key_name_admin(usr)] toggled new player game entering.</span>")
 	world.update_status()
-	SSblackbox.add_details("admin_toggle","Toggle Entering|[GLOB.enter_allowed]") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Toggle Entering", "[GLOB.enter_allowed ? "Enabled" : "Disabled"]")) //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/toggleAI()
 	set category = "Server"
@@ -572,7 +604,7 @@
 		to_chat(world, "<B>The AI job is chooseable now.</B>")
 	log_admin("[key_name(usr)] toggled AI allowed.")
 	world.update_status()
-	SSblackbox.add_details("admin_toggle","Toggle AI|[!alai]") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Toggle AI", "[!alai ? "Disabled" : "Enabled"]")) //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/toggleaban()
 	set category = "Server"
@@ -587,7 +619,7 @@
 	message_admins("<span class='adminnotice'>[key_name_admin(usr)] toggled respawn to [!new_nores ? "On" : "Off"].</span>")
 	log_admin("[key_name(usr)] toggled respawn to [!new_nores ? "On" : "Off"].")
 	world.update_status()
-	SSblackbox.add_details("admin_toggle","Toggle Respawn|[!new_nores]") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Toggle Respawn", "[!new_nores ? "Enabled" : "Disabled"]")) //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/delay()
 	set category = "Server"
@@ -598,47 +630,30 @@
 	if(SSticker.current_state > GAME_STATE_PREGAME)
 		return alert("Too late... The game has already started!")
 	if(newtime)
-		SSticker.SetTimeLeft(newtime * 10)
+		newtime = newtime*10
+		SSticker.SetTimeLeft(newtime)
 		if(newtime < 0)
 			to_chat(world, "<b>The game start has been delayed.</b>")
 			log_admin("[key_name(usr)] delayed the round start.")
 		else
-			to_chat(world, "<b>The game will start in [newtime] seconds.</b>")
+			to_chat(world, "<b>The game will start in [DisplayTimeText(newtime)].</b>")
 			SEND_SOUND(world, sound('sound/ai/attention.ogg'))
-			log_admin("[key_name(usr)] set the pre-game delay to [newtime] seconds.")
-		SSblackbox.add_details("admin_verb","Delay Game Start") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+			log_admin("[key_name(usr)] set the pre-game delay to [DisplayTimeText(newtime)].")
+		SSblackbox.record_feedback("tally", "admin_verb", 1, "Delay Game Start") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/unprison(mob/M in GLOB.mob_list)
 	set category = "Admin"
 	set name = "Unprison"
-	if (M.z == ZLEVEL_CENTCOM)
+	if (is_centcom_level(M.z))
 		SSjob.SendToLateJoin(M)
 		message_admins("[key_name_admin(usr)] has unprisoned [key_name_admin(M)]")
 		log_admin("[key_name(usr)] has unprisoned [key_name(M)]")
 	else
 		alert("[M.name] is not prisoned.")
-	SSblackbox.add_details("admin_verb","Unprison") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Unprison") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 ////////////////////////////////////////////////////////////////////////////////////////////////ADMIN HELPER PROCS
 
-/*
-/datum/admins/proc/get_sab_desc(var/target)
-	switch(target)
-		if(1)
-			return "Destroy at least 70% of the plasma canisters on the station"
-		if(2)
-			return "Destroy the AI"
-		if(3)
-			var/count = 0
-			for(var/mob/living/carbon/monkey/Monkey in world)
-				if(Monkey.z in GLOB.station_z_levels)
-					count++
-			return "Kill all [count] of the monkeys on the station"
-		if(4)
-			return "Cut power to at least 80% of the station"
-		else
-			return "Error: Invalid sabotage target: [target]"
-*/
 /datum/admins/proc/spawn_atom(object as text)
 	set category = "Debug"
 	set desc = "(atom path) Spawn an atom"
@@ -650,15 +665,58 @@
 	var/chosen = pick_closest_path(object)
 	if(!chosen)
 		return
+	var/turf/T = get_turf(usr)
+
 	if(ispath(chosen, /turf))
-		var/turf/T = get_turf(usr.loc)
 		T.ChangeTurf(chosen)
 	else
-		var/atom/A = new chosen(usr.loc)
-		A.admin_spawned = TRUE
+		var/atom/A = new chosen(T)
+		A.flags_1 |= ADMIN_SPAWNED_1
 
-	log_admin("[key_name(usr)] spawned [chosen] at ([usr.x],[usr.y],[usr.z])")
-	SSblackbox.add_details("admin_verb","Spawn Atom") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	log_admin("[key_name(usr)] spawned [chosen] at [AREACOORD(usr)]")
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Spawn Atom") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+
+/datum/admins/proc/podspawn_atom(object as text)
+	set category = "Debug"
+	set desc = "(atom path) Spawn an atom via supply drop"
+	set name = "Podspawn"
+
+	if(!check_rights(R_SPAWN))
+		return
+
+	var/chosen = pick_closest_path(object)
+	if(!chosen)
+		return
+	var/turf/T = get_turf(usr)
+
+	if(ispath(chosen, /turf))
+		T.ChangeTurf(chosen)
+	else
+		var/obj/structure/closet/supplypod/centcompod/pod = new()
+		var/atom/A = new chosen(pod)
+		A.flags_1 |= ADMIN_SPAWNED_1
+		new /obj/effect/DPtarget(T, pod)
+
+	log_admin("[key_name(usr)] pod-spawned [chosen] at [AREACOORD(usr)]")
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Podspawn Atom") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+
+/datum/admins/proc/spawn_cargo(object as text)
+	set category = "Debug"
+	set desc = "(atom path) Spawn a cargo crate"
+	set name = "Spawn Cargo"
+
+	if(!check_rights(R_SPAWN))
+		return
+
+	var/chosen = pick_closest_path(object, make_types_fancy(subtypesof(/datum/supply_pack)))
+	if(!chosen)
+		return
+	var/datum/supply_pack/S = new chosen
+	S.admin_spawned = TRUE
+	S.generate(get_turf(usr))
+
+	log_admin("[key_name(usr)] spawned cargo pack [chosen] at [AREACOORD(usr)]")
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Spawn Cargo") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 
 /datum/admins/proc/show_traitor_panel(mob/M in GLOB.mob_list)
@@ -667,14 +725,14 @@
 	set name = "Show Traitor Panel"
 
 	if(!istype(M))
-		to_chat(usr, "This can only be used on instances of type /mob")
+		to_chat(usr, "This can only be used on instances of type /mob", confidential=TRUE)
 		return
 	if(!M.mind)
-		to_chat(usr, "This mob has no mind!")
+		to_chat(usr, "This mob has no mind!", confidential=TRUE)
 		return
 
-	M.mind.edit_memory()
-	SSblackbox.add_details("admin_verb","Traitor Panel") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	M.mind.traitor_panel()
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Traitor Panel") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 
 /datum/admins/proc/toggletintedweldhelmets()
@@ -688,7 +746,7 @@
 		to_chat(world, "<B>The tinted_weldhelh has been disabled!</B>")
 	log_admin("[key_name(usr)] toggled tinted_weldhelh.")
 	message_admins("[key_name_admin(usr)] toggled tinted_weldhelh.")
-	SSblackbox.add_details("admin_toggle","Toggle Tinted Welding Helmets|[GLOB.tinted_weldhelh]") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Toggle Tinted Welding Helmets", "[GLOB.tinted_weldhelh ? "Enabled" : "Disabled"]")) //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/toggleguests()
 	set category = "Server"
@@ -702,81 +760,121 @@
 		to_chat(world, "<B>Guests may now enter the game.</B>")
 	log_admin("[key_name(usr)] toggled guests game entering [!new_guest_ban ? "" : "dis"]allowed.")
 	message_admins("<span class='adminnotice'>[key_name_admin(usr)] toggled guests game entering [!new_guest_ban ? "" : "dis"]allowed.</span>")
-	SSblackbox.add_details("admin_toggle","Toggle Guests|[!new_guest_ban]") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Toggle Guests", "[!new_guest_ban ? "Enabled" : "Disabled"]")) //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 
 /datum/admins/proc/output_ai_laws()
 	var/ai_number = 0
-	for(var/mob/living/silicon/S in GLOB.mob_list)
+	for(var/i in GLOB.silicon_mobs)
+		var/mob/living/silicon/S = i
 		ai_number++
 		if(isAI(S))
-			to_chat(usr, "<b>AI [key_name(S, usr)]'s laws:</b>")
+			to_chat(usr, "<b>AI [key_name(S, usr)]'s laws:</b>", confidential=TRUE)
 		else if(iscyborg(S))
 			var/mob/living/silicon/robot/R = S
-			to_chat(usr, "<b>CYBORG [key_name(S, usr)] [R.connected_ai?"(Slaved to: [R.connected_ai])":"(Independent)"]: laws:</b>")
+			to_chat(usr, "<b>CYBORG [key_name(S, usr)] [R.connected_ai?"(Slaved to: [key_name(R.connected_ai)])":"(Independent)"]: laws:</b>", confidential=TRUE)
 		else if (ispAI(S))
-			to_chat(usr, "<b>pAI [key_name(S, usr)]'s laws:</b>")
+			to_chat(usr, "<b>pAI [key_name(S, usr)]'s laws:</b>", confidential=TRUE)
 		else
-			to_chat(usr, "<b>SOMETHING SILICON [key_name(S, usr)]'s laws:</b>")
+			to_chat(usr, "<b>SOMETHING SILICON [key_name(S, usr)]'s laws:</b>", confidential=TRUE)
 
 		if (S.laws == null)
-			to_chat(usr, "[key_name(S, usr)]'s laws are null?? Contact a coder.")
+			to_chat(usr, "[key_name(S, usr)]'s laws are null?? Contact a coder.", confidential=TRUE)
 		else
 			S.laws.show_laws(usr)
 	if(!ai_number)
-		to_chat(usr, "<b>No AIs located</b>" )
+		to_chat(usr, "<b>No AIs located</b>", confidential=TRUE)
 
 /datum/admins/proc/output_all_devil_info()
 	var/devil_number = 0
-	for(var/D in SSticker.mode.devils)
+	for(var/datum/mind/D in SSticker.mode.devils)
 		devil_number++
-		to_chat(usr, "Devil #[devil_number]:<br><br>" + SSticker.mode.printdevilinfo(D))
+		var/datum/antagonist/devil/devil = D.has_antag_datum(/datum/antagonist/devil)
+		to_chat(usr, "Devil #[devil_number]:<br><br>" + devil.printdevilinfo(), confidential=TRUE)
 	if(!devil_number)
-		to_chat(usr, "<b>No Devils located</b>" )
+		to_chat(usr, "<b>No Devils located</b>", confidential=TRUE)
 
 /datum/admins/proc/output_devil_info(mob/living/M)
 	if(is_devil(M))
-		to_chat(usr, SSticker.mode.printdevilinfo(M.mind))
+		var/datum/antagonist/devil/devil = M.mind.has_antag_datum(/datum/antagonist/devil)
+		to_chat(usr, devil.printdevilinfo(), confidential=TRUE)
 	else
-		to_chat(usr, "<b>[M] is not a devil.")
+		to_chat(usr, "<b>[M] is not a devil.", confidential=TRUE)
 
 /datum/admins/proc/manage_free_slots()
 	if(!check_rights())
 		return
-	var/dat = "<html><head><title>Manage Free Slots</title></head><body>"
+	var/datum/browser/browser = new(usr, "jobmanagement", "Manage Free Slots", 520)
+	var/list/dat = list()
 	var/count = 0
 
-	if(!SSticker.HasRoundStarted())
-		alert(usr, "You cannot manage jobs before the round starts!")
+	if(!SSjob.initialized)
+		alert(usr, "You cannot manage jobs before the job subsystem is initialized!")
 		return
 
-	for(var/datum/job/job in SSjob.occupations)
+	dat += "<table>"
+
+	for(var/j in SSjob.occupations)
+		var/datum/job/job = j
 		count++
 		var/J_title = html_encode(job.title)
 		var/J_opPos = html_encode(job.total_positions - (job.total_positions - job.current_positions))
 		var/J_totPos = html_encode(job.total_positions)
-		if(job.total_positions < 0)
-			dat += "[J_title]: [J_opPos]   (unlimited)"
-		else
-			dat += "[J_title]: [J_opPos]/[J_totPos]"
+		dat += "<tr><td>[J_title]:</td> <td>[J_opPos]/[job.total_positions < 0 ? " (unlimited)" : J_totPos]"
 
-		if(job.title == "AI" || job.title == "Cyborg")
-			dat += "   (Cannot Late Join)<br>"
-			continue
+		dat += "</td>"
+		dat += "<td>"
 		if(job.total_positions >= 0)
-			dat += "   <A href='?src=[REF(src)];[HrefToken()];addjobslot=[job.title]'>Add</A>  |  "
+			dat += "<A href='?src=[REF(src)];[HrefToken()];customjobslot=[job.title]'>Custom</A> | "
+			dat += "<A href='?src=[REF(src)];[HrefToken()];addjobslot=[job.title]'>Add 1</A> | "
 			if(job.total_positions > job.current_positions)
-				dat += "<A href='?src=[REF(src)];[HrefToken()];removejobslot=[job.title]'>Remove</A>  |  "
+				dat += "<A href='?src=[REF(src)];[HrefToken()];removejobslot=[job.title]'>Remove</A> | "
 			else
-				dat += "Remove  |  "
-			dat += "<A href='?src=[REF(src)];[HrefToken()];unlimitjobslot=[job.title]'>Unlimit</A>"
+				dat += "Remove | "
+			dat += "<A href='?src=[REF(src)];[HrefToken()];unlimitjobslot=[job.title]'>Unlimit</A></td>"
 		else
-			dat += "   <A href='?src=[REF(src)];[HrefToken()];limitjobslot=[job.title]'>Limit</A>"
-		dat += "<br>"
+			dat += "<A href='?src=[REF(src)];[HrefToken()];limitjobslot=[job.title]'>Limit</A></td>"
 
-	dat += "</body>"
-	var/winheight = 100 + (count * 20)
-	winheight = min(winheight, 690)
-	usr << browse(dat, "window=players;size=375x[winheight]")
+	browser.height = min(100 + count * 20, 650)
+	browser.set_content(dat.Join())
+	browser.open()
+
+/datum/admins/proc/dynamic_mode_options(mob/user)
+	var/dat = {"
+		<center><B><h2>Dynamic Mode Options</h2></B></center><hr>
+		<br/> 
+		<h3>Common options</h3>
+		<i>All these options can be changed midround.</i> <br/>
+		<br/>
+		<b>Force extended:</b> - Option is <a href='?src=[REF(src)];[HrefToken()];f_dynamic_force_extended=1'> <b>[GLOB.dynamic_forced_extended ? "ON" : "OFF"]</a></b>.
+		<br/>This will force the round to be extended. No rulesets will be drafted. <br/>
+		<br/>
+		<b>No stacking:</b> - Option is <a href='?src=[REF(src)];[HrefToken()];f_dynamic_no_stacking=1'> <b>[GLOB.dynamic_no_stacking ? "ON" : "OFF"]</b></a>.
+		<br/>Unless the threat goes above [GLOB.dynamic_stacking_limit], only one "round-ender" ruleset will be drafted. <br/>
+		<br/>
+		<b>Classic secret mode:</b> - Option is <a href='?src=[REF(src)];[HrefToken()];f_dynamic_classic_secret=1'> <b>[GLOB.dynamic_classic_secret ? "ON" : "OFF"]</b></a>.
+		<br/>Only one roundstart ruleset will be drafted. Only traitors and minor roles will latespawn. <br/>
+		<br/>
+		<br/>
+		<b>Forced threat level:</b> Current value : <a href='?src=[REF(src)];[HrefToken()];f_dynamic_forced_threat=1'><b>[GLOB.dynamic_forced_threat_level]</b></a>.
+		<br/>The value threat is set to if it is higher than -1.<br/>
+		<br/>
+		<b>High population limit:</b> Current value : <a href='?src=[REF(src)];[HrefToken()];f_dynamic_high_pop_limit=1'><b>[GLOB.dynamic_high_pop_limit]</b></a>.
+		<br/>The threshold at which "high population override" will be in effect. <br/>
+		<br/>
+		<b>Stacking threeshold:</b> Current value : <a href='?src=[REF(src)];[HrefToken()];f_dynamic_stacking_limit=1'><b>[GLOB.dynamic_stacking_limit]</b></a>.
+		<br/>The threshold at which "round-ender" rulesets will stack. A value higher than 100 ensure this never happens. <br/>
+		<h3>Advanced parameters</h3>
+		Curve centre: <A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_centre=1'>-> [GLOB.dynamic_curve_centre] <-</A><br>
+		Curve width: <A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_width=1'>-> [GLOB.dynamic_curve_width] <-</A><br>
+		Latejoin injection delay:<br>
+		Minimum: <A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_latejoin_min=1'>-> [GLOB.dynamic_latejoin_delay_min / 60 / 10] <-</A> Minutes<br>
+		Maximum: <A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_latejoin_max=1'>-> [GLOB.dynamic_latejoin_delay_max / 60 / 10] <-</A> Minutes<br>
+		Midround injection delay:<br>
+		Minimum: <A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_midround_min=1'>-> [GLOB.dynamic_midround_delay_min / 60 / 10] <-</A> Minutes<br>
+		Maximum: <A href='?src=[REF(src)];[HrefToken()];f_dynamic_roundstart_midround_max=1'>-> [GLOB.dynamic_midround_delay_max / 60 / 10] <-</A> Minutes<br>
+		"}
+
+	user << browse(dat, "window=dyn_mode_options;size=900x650")
 
 /datum/admins/proc/create_or_modify_area()
 	set category = "Debug"
@@ -803,14 +901,14 @@
 			if(kick_only_afk && !C.is_afk()) //Ignore clients who are not afk
 				continue
 			if(message)
-				to_chat(C, message)
-			kicked_client_names.Add("[C.ckey]")
+				to_chat(C, message, confidential=TRUE)
+			kicked_client_names.Add("[C.key]")
 			qdel(C)
 	return kicked_client_names
 
 //returns 1 to let the dragdrop code know we are trapping this event
 //returns 0 if we don't plan to trap the event
-/datum/admins/proc/cmd_ghost_drag(mob/dead/observer/frommob, mob/living/tomob)
+/datum/admins/proc/cmd_ghost_drag(mob/dead/observer/frommob, mob/tomob)
 
 	//this is the exact two check rights checks required to edit a ckey with vv.
 	if (!check_rights(R_VAREDIT,0) || !check_rights(R_SPAWN|R_DEBUG,0))
@@ -833,9 +931,9 @@
 
 	tomob.ghostize(0)
 
-	message_admins("<span class='adminnotice'>[key_name_admin(usr)] has put [frommob.ckey] in control of [tomob.name].</span>")
-	log_admin("[key_name(usr)] stuffed [frommob.ckey] into [tomob.name].")
-	SSblackbox.add_details("admin_verb","Ghost Drag Control")
+	message_admins("<span class='adminnotice'>[key_name_admin(usr)] has put [frommob.key] in control of [tomob.name].</span>")
+	log_admin("[key_name(usr)] stuffed [frommob.key] into [tomob.name].")
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Ghost Drag Control")
 
 	tomob.ckey = frommob.ckey
 	qdel(frommob)
@@ -845,10 +943,10 @@
 /client/proc/adminGreet(logout)
 	if(SSticker.HasRoundStarted())
 		var/string
-		if(logout && CONFIG_GET(flag/announce_admin_logout)  && check_rights_for(src, R_ADMIN))
+		if(logout && CONFIG_GET(flag/announce_admin_logout))
 			string = pick(
 				"Admin logout: [key_name(src)]")
-		else if(!logout && CONFIG_GET(flag/announce_admin_login) && (prefs.toggles & ANNOUNCE_LOGIN) && check_rights_for(src, R_ADMIN))
+		else if(!logout && CONFIG_GET(flag/announce_admin_login) && (prefs.toggles & ANNOUNCE_LOGIN))
 			string = pick(
 				"Admin login: [key_name(src)]")
 		if(string)

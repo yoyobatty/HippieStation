@@ -6,14 +6,14 @@
 //spooky recipes
 
 /datum/recipe/sugarcookie/spookyskull
-	reagents = list("flour" = 5, "sugar" = 5, "milk" = 5)
+	reagents = list(/datum/reagent/consumable/flour = 5, /datum/reagent/consumable/sugar = 5, /datum/reagent/consumable/milk = 5)
 	items = list(
 		/obj/item/reagent_containers/food/snacks/egg,
 	)
 	result = /obj/item/reagent_containers/food/snacks/sugarcookie/spookyskull
 
 /datum/recipe/sugarcookie/spookycoffin
-	reagents = list("flour" = 5, "sugar" = 5, "coffee" = 5)
+	reagents = list(/datum/reagent/consumable/flour = 5, /datum/reagent/consumable/sugar = 5, /datum/reagent/consumable/coffee = 5)
 	items = list(
 		/obj/item/reagent_containers/food/snacks/egg,
 	)
@@ -146,7 +146,7 @@
 		timer = rand(1,15)
 
 /mob/living/simple_animal/shade/howling_ghost/proc/EtherealMove(direction)
-	loc = get_step(src, direction)
+	forceMove(get_step(src, direction))
 	setDir(direction)
 
 /mob/living/simple_animal/shade/howling_ghost/proc/roam()
@@ -168,7 +168,7 @@
 			step(I,direction)
 		return
 
-/mob/living/simple_animal/shade/howling_ghost/adjustHealth()
+/mob/living/simple_animal/shade/howling_ghost/adjustHealth(amount, updating_health = TRUE, forced = FALSE)
 	. = 0
 
 /mob/living/simple_animal/shade/howling_ghost/CanPass(atom/movable/mover, turf/target)
@@ -220,7 +220,7 @@
 		timer = rand(5,15)
 		playsound(M.loc, pick('sound/spookoween/scary_horn.ogg','sound/spookoween/scary_horn2.ogg', 'sound/spookoween/scary_horn3.ogg'), 300, 1)
 		spawn(12)
-			loc = M.loc
+			forceMove(M.loc)
 
 /mob/living/simple_animal/hostile/retaliate/clown/insane/MoveToTarget()
 	stalk(target)
@@ -228,7 +228,7 @@
 /mob/living/simple_animal/hostile/retaliate/clown/insane/AttackingTarget()
 	return
 
-/mob/living/simple_animal/hostile/retaliate/clown/insane/adjustHealth()
+/mob/living/simple_animal/hostile/retaliate/clown/insane/adjustHealth(amount, updating_health = TRUE, forced = FALSE)
 	. = 0
 	if(prob(5))
 		playsound(loc, 'sound/spookoween/insane_low_laugh.ogg', 300, 1)

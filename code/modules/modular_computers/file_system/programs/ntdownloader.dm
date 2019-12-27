@@ -11,25 +11,27 @@
 	available_on_ntnet = 0
 	ui_header = "downloader_finished.gif"
 	tgui_id = "ntos_net_downloader"
+	ui_x = 480
+	ui_y = 735
 
 	var/datum/computer_file/program/downloaded_file = null
 	var/hacked_download = 0
 	var/download_completion = 0 //GQ of downloaded data.
 	var/download_netspeed = 0
 	var/downloaderror = ""
-	var/obj/item/device/modular_computer/my_computer = null
+	var/obj/item/modular_computer/my_computer = null
 
 /datum/computer_file/program/ntnetdownload/proc/begin_file_download(filename)
 	if(downloaded_file)
 		return 0
 
-	var/datum/computer_file/program/PRG = GLOB.ntnet_global.find_ntnet_file_by_name(filename)
+	var/datum/computer_file/program/PRG = SSnetworks.station_network.find_ntnet_file_by_name(filename)
 
 	if(!PRG || !istype(PRG))
 		return 0
 
 	// Attempting to download antag only program, but without having emagged computer. No.
-	if(PRG.available_on_syndinet && !computer.emagged)
+	if(PRG.available_on_syndinet && !(computer.obj_flags & EMAGGED))
 		return 0
 
 	var/obj/item/computer_hardware/hard_drive/hard_drive = computer.all_components[MC_HDD]
@@ -39,10 +41,10 @@
 
 	ui_header = "downloader_running.gif"
 
-	if(PRG in GLOB.ntnet_global.available_station_software)
+	if(PRG in SSnetworks.station_network.available_station_software)
 		generate_network_log("Began downloading file [PRG.filename].[PRG.filetype] from NTNet Software Repository.")
 		hacked_download = 0
-	else if(PRG in GLOB.ntnet_global.available_antag_software)
+	else if(PRG in SSnetworks.station_network.available_antag_software)
 		generate_network_log("Began downloading file **ENCRYPTED**.[PRG.filetype] from unspecified server.")
 		hacked_download = 1
 	else
@@ -113,49 +115,50 @@
 
 	var/list/data = get_header_data()
 
-	// This IF cuts on data transferred to client, so i guess it's worth it.
-	if(downloaderror) // Download errored. Wait until user resets the program.
-		data["error"] = downloaderror
-	else if(downloaded_file) // Download running. Wait please..
+	data["downloading"] = !!downloaded_file
+	data["error"] = downloaderror || FALSE
+
+	// Download running. Wait please..
+	if(downloaded_file)
 		data["downloadname"] = downloaded_file.filename
 		data["downloaddesc"] = downloaded_file.filedesc
 		data["downloadsize"] = downloaded_file.size
 		data["downloadspeed"] = download_netspeed
 		data["downloadcompletion"] = round(download_completion, 0.1)
-	else // No download running, pick file.
-		var/obj/item/computer_hardware/hard_drive/hard_drive = my_computer.all_components[MC_HDD]
-		data["disk_size"] = hard_drive.max_capacity
-		data["disk_used"] = hard_drive.used_capacity
-		var/list/all_entries[0]
-		for(var/A in GLOB.ntnet_global.available_station_software)
-			var/datum/computer_file/program/P = A
-			// Only those programs our user can run will show in the list
-			if(!P.can_run(user,transfer = 1) || hard_drive.find_file_by_name(P.filename))
-				continue
-			all_entries.Add(list(list(
+
+	var/obj/item/computer_hardware/hard_drive/hard_drive = my_computer.all_components[MC_HDD]
+	data["disk_size"] = hard_drive.max_capacity
+	data["disk_used"] = hard_drive.used_capacity
+	var/list/all_entries[0]
+	for(var/A in SSnetworks.station_network.available_station_software)
+		var/datum/computer_file/program/P = A
+		// Only those programs our user can run will show in the list
+		if(!P.can_run(user,transfer = 1) || hard_drive.find_file_by_name(P.filename))
+			continue
+		all_entries.Add(list(list(
 			"filename" = P.filename,
 			"filedesc" = P.filedesc,
 			"fileinfo" = P.extended_desc,
 			"compatibility" = check_compatibility(P),
-			"size" = P.size
-			)))
-		data["hackedavailable"] = 0
-		if(computer.emagged) // If we are running on emagged computer we have access to some "bonus" software
-			var/list/hacked_programs[0]
-			for(var/S in GLOB.ntnet_global.available_antag_software)
-				var/datum/computer_file/program/P = S
-				if(hard_drive.find_file_by_name(P.filename))
-					continue
-				data["hackedavailable"] = 1
-				hacked_programs.Add(list(list(
+			"size" = P.size,
+		)))
+	data["hackedavailable"] = FALSE
+	if(computer.obj_flags & EMAGGED) // If we are running on emagged computer we have access to some "bonus" software
+		var/list/hacked_programs[0]
+		for(var/S in SSnetworks.station_network.available_antag_software)
+			var/datum/computer_file/program/P = S
+			if(hard_drive.find_file_by_name(P.filename))
+				continue
+			data["hackedavailable"] = TRUE
+			hacked_programs.Add(list(list(
 				"filename" = P.filename,
 				"filedesc" = P.filedesc,
 				"fileinfo" = P.extended_desc,
-				"size" = P.size
-				)))
-			data["hacked_programs"] = hacked_programs
+				"size" = P.size,
+			)))
+		data["hacked_programs"] = hacked_programs
 
-		data["downloadable_programs"] = all_entries
+	data["downloadable_programs"] = all_entries
 
 	return data
 

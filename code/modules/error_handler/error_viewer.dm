@@ -7,7 +7,7 @@
 //   logged errors. Only one instance of this datum should ever exist, and it's
 //   right here:
 
-#ifdef DEBUG
+#ifdef USE_CUSTOM_ERROR_HANDLER
 GLOBAL_DATUM_INIT(error_cache, /datum/error_viewer/error_cache, new)
 #else
 // If debugging is disabled, there's nothing useful to log, so don't bother.
@@ -122,7 +122,7 @@ GLOBAL_DATUM(error_cache, /datum/error_viewer/error_cache)
 			err_msg_delay = CONFIG_GET(number/error_msg_delay)
 		else
 			var/datum/config_entry/CE = /datum/config_entry/number/error_msg_delay
-			err_msg_delay = initial(CE.value)
+			err_msg_delay = initial(CE.config_entry_value)
 		error_source.next_message_at = world.time + err_msg_delay
 
 /datum/error_viewer/error_source

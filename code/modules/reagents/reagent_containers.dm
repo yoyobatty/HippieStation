@@ -7,20 +7,21 @@
 	var/amount_per_transfer_from_this = 5
 	var/list/possible_transfer_amounts = list(5,10,15,20,25,30)
 	var/volume = 30
+	var/reagent_flags
 	var/list/list_reagents = null
 	var/spawned_disease = null
 	var/disease_amount = 20
-	var/spillable = 0
+	var/spillable = FALSE
 
 /obj/item/reagent_containers/Initialize(mapload, vol)
 	. = ..()
 	if(isnum(vol) && vol > 0)
 		volume = vol
-	create_reagents(volume)
+	create_reagents(volume, reagent_flags)
 	if(spawned_disease)
-		var/datum/disease/F = new spawned_disease(0)
+		var/datum/disease/F = new spawned_disease()
 		var/list/data = list("viruses"= list(F))
-		reagents.add_reagent("blood", disease_amount, data)
+		reagents.add_reagent(/datum/reagent/blood, disease_amount, data)
 
 	add_initial_reagents()
 
@@ -45,21 +46,20 @@
 	if(user.a_intent == INTENT_HARM)
 		return ..()
 
-/obj/item/reagent_containers/afterattack(obj/target, mob/user , flag)
-	return
-
-/obj/item/reagent_containers/proc/reagentlist(obj/item/reagent_containers/snack) //Attack logs for regents in pills
-	var/data
-	if(snack.reagents.reagent_list && snack.reagents.reagent_list.len) //find a reagent list if there is and check if it has entries
-		for (var/datum/reagent/R in snack.reagents.reagent_list) //no reagents will be left behind
-			data += "[R.id]([R.volume] units); " //Using IDs because SOME chemicals(I'm looking at you, chlorhydrate-beer) have the same names as other chemicals.
-		return data
-	else
-		return "No reagents"
-
 /obj/item/reagent_containers/proc/canconsume(mob/eater, mob/user)
-	if(!iscarbon(eater))
+/*	if(!iscarbon(eater)) // hippie start -- eat through helmets
 		return 0
+	var/mob/living/carbon/C = eater
+	var/covered = ""
+	if(C.is_mouth_covered(head_only = 1))
+		covered = "headgear"
+	else if(C.is_mouth_covered(mask_only = 1))
+		covered = "mask"
+	if(covered)
+		var/who = (isnull(user) || eater == user) ? "your" : "[eater.p_their()]"
+		to_chat(user, "<span class='warning'>You have to remove [who] [covered] first!</span>")
+		return 0
+	*/ // hippie end
 	return 1
 
 /obj/item/reagent_containers/ex_act()
@@ -73,9 +73,14 @@
 	reagents.expose_temperature(exposed_temperature)
 	..()
 
-/obj/item/reagent_containers/throw_impact(atom/target)
+/obj/item/reagent_containers/throw_impact(atom/hit_atom, datum/thrownthing/throwingdatum)
 	. = ..()
-	SplashReagents(target, TRUE)
+	SplashReagents(hit_atom, TRUE)
+
+/obj/item/reagent_containers/proc/bartender_check(atom/target)
+	. = FALSE
+	if(target.CanPass(src, get_turf(src)) && thrownby && HAS_TRAIT(thrownby, TRAIT_BOOZE_SLIDER))
+		. = TRUE
 
 /obj/item/reagent_containers/proc/SplashReagents(atom/target, thrown = FALSE)
 	if(!reagents || !reagents.total_volume || !spillable)
@@ -89,22 +94,21 @@
 		target.visible_message("<span class='danger'>[M] has been splashed with something!</span>", \
 						"<span class='userdanger'>[M] has been splashed with something!</span>")
 		for(var/datum/reagent/A in reagents.reagent_list)
-			R += A.id + " ("
-			R += num2text(A.volume) + "),"
+			R += "[A.type]  ([num2text(A.volume)]),"
 
 		if(thrownby)
-			add_logs(thrownby, M, "splashed", R)
+			log_combat(thrownby, M, "splashed", R)
 		reagents.reaction(target, TOUCH)
 
-	else if((target.CanPass(src, get_turf(src))) && thrown && thrownby && thrownby.mind && thrownby.mind.assigned_role == "Bartender")
+	else if(bartender_check(target) && thrown)
 		visible_message("<span class='notice'>[src] lands onto the [target.name] without spilling a single drop.</span>")
 		return
 
 	else
 		if(isturf(target) && reagents.reagent_list.len && thrownby)
-			add_logs(thrownby, target, "splashed (thrown) [english_list(reagents.reagent_list)]", "at [target][COORD(target)]")
-			log_game("[key_name(thrownby)] splashed (thrown) [english_list(reagents.reagent_list)] at [COORD(target)].")
-			message_admins("[key_name_admin(thrownby)] splashed (thrown) [english_list(reagents.reagent_list)] at [ADMIN_COORDJMP(target)].")
+			log_combat(thrownby, target, "splashed (thrown) [english_list(reagents.reagent_list)]", "in [AREACOORD(target)]")
+			log_game("[key_name(thrownby)] splashed (thrown) [english_list(reagents.reagent_list)] on [target] in [AREACOORD(target)].")
+			message_admins("[ADMIN_LOOKUPFLW(thrownby)] splashed (thrown) [english_list(reagents.reagent_list)] on [target] in [ADMIN_VERBOSEJMP(target)].")
 		visible_message("<span class='notice'>[src] spills its contents all over [target].</span>")
 		reagents.reaction(target, TOUCH)
 		if(QDELETED(src))
@@ -113,8 +117,7 @@
 	reagents.clear_reagents()
 
 /obj/item/reagent_containers/microwave_act(obj/machinery/microwave/M)
-	if(is_open_container())
-		reagents.expose_temperature(1000)
+	reagents.expose_temperature(1000)
 	..()
 
 /obj/item/reagent_containers/temperature_expose(datum/gas_mixture/air, exposed_temperature, exposed_volume)

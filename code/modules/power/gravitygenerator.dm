@@ -22,13 +22,13 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 	name = "gravitational generator"
 	desc = "A device which produces a graviton field when set up."
 	icon = 'icons/obj/machines/gravity_generator.dmi'
-	anchored = TRUE
 	density = TRUE
+	move_resist = INFINITY
 	use_power = NO_POWER_USE
 	resistance_flags = INDESTRUCTIBLE | LAVA_PROOF | FIRE_PROOF | UNACIDABLE | ACID_PROOF
 	var/sprite_number = 0
 
-/obj/machinery/gravity_generator/throw_at()
+/obj/machinery/gravity_generator/safe_throw_at(atom/target, range, speed, mob/thrower, spin = TRUE, diagonals_first = FALSE, datum/callback/callback, force = MOVE_FORCE_STRONG)
 	return FALSE
 
 /obj/machinery/gravity_generator/ex_act(severity, target)
@@ -39,9 +39,9 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 	if(prob(20))
 		set_broken()
 
-/obj/machinery/gravity_generator/tesla_act(power, explosive)
+/obj/machinery/gravity_generator/tesla_act(power, tesla_flags)
 	..()
-	if(explosive)
+	if(tesla_flags & TESLA_MACHINE_EXPLOSIVE)
 		qdel(src)//like the singulo, tesla deletes it. stops it from exploding over and over
 
 /obj/machinery/gravity_generator/update_icon()
@@ -53,7 +53,7 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 
 // You aren't allowed to move.
 /obj/machinery/gravity_generator/Move()
-	..()
+	. = ..()
 	qdel(src)
 
 /obj/machinery/gravity_generator/proc/set_broken()
@@ -79,6 +79,8 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 	return main_part.attackby(I, user)
 
 /obj/machinery/gravity_generator/part/get_status()
+	if(QDELETED(main_part)) // hippie start -- fix weird runtime
+		return "off" // hippie end
 	return main_part.get_status()
 
 /obj/machinery/gravity_generator/part/attack_hand(mob/user)
@@ -116,7 +118,9 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 	power_channel = ENVIRON
 	sprite_number = 8
 	use_power = IDLE_POWER_USE
-	interact_offline = 1
+	interaction_flags_machine = INTERACT_MACHINE_ALLOW_SILICON | INTERACT_MACHINE_OFFLINE
+	ui_x = 400
+	ui_y = 200
 	var/on = TRUE
 	var/breaker = 1
 	var/list/parts = list()
@@ -125,6 +129,7 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 	var/charge_count = 100
 	var/current_overlay = null
 	var/broken_state = 0
+	var/setting = 1	//Gravity value when on
 
 /obj/machinery/gravity_generator/main/Destroy() // If we somehow get deleted, remove all of our other parts.
 	investigate_log("was destroyed!", INVESTIGATE_GRAVITY)
@@ -186,22 +191,18 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 /obj/machinery/gravity_generator/main/attackby(obj/item/I, mob/user, params)
 	switch(broken_state)
 		if(GRAV_NEEDS_SCREWDRIVER)
-			if(istype(I, /obj/item/screwdriver))
+			if(I.tool_behaviour == TOOL_SCREWDRIVER)
 				to_chat(user, "<span class='notice'>You secure the screws of the framework.</span>")
-				playsound(src.loc, I.usesound, 50, 1)
+				I.play_tool_sound(src)
 				broken_state++
 				update_icon()
 				return
 		if(GRAV_NEEDS_WELDING)
-			if(istype(I, /obj/item/weldingtool))
-				var/obj/item/weldingtool/WT = I
-				if(WT.remove_fuel(1, user))
+			if(I.tool_behaviour == TOOL_WELDER)
+				if(I.use_tool(src, user, 0, volume=50, amount=1))
 					to_chat(user, "<span class='notice'>You mend the damaged framework.</span>")
-					playsound(src.loc, 'sound/items/welder2.ogg', 50, 1)
 					broken_state++
 					update_icon()
-				else if(WT.isOn())
-					to_chat(user, "<span class='warning'>You don't have enough fuel to mend the damaged framework!</span>")
 				return
 		if(GRAV_NEEDS_PLASTEEL)
 			if(istype(I, /obj/item/stack/sheet/plasteel))
@@ -216,57 +217,45 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 					to_chat(user, "<span class='warning'>You need 10 sheets of plasteel!</span>")
 				return
 		if(GRAV_NEEDS_WRENCH)
-			if(istype(I, /obj/item/wrench))
+			if(I.tool_behaviour == TOOL_WRENCH)
 				to_chat(user, "<span class='notice'>You secure the plating to the framework.</span>")
-				playsound(src.loc, I.usesound, 75, 1)
+				I.play_tool_sound(src)
 				set_fix()
 				return
 	return ..()
 
+/obj/machinery/gravity_generator/main/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, \
+									datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
+	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
+	if(!ui)
+		ui = new(user, src, ui_key, "gravity_generator", name, ui_x, ui_y, master_ui, state)
+		ui.open()
 
-/obj/machinery/gravity_generator/main/attack_hand(mob/user)
-	if(!..())
-		return interact(user)
+/obj/machinery/gravity_generator/main/ui_data(mob/user)
+	var/list/data = list()
 
-/obj/machinery/gravity_generator/main/interact(mob/user)
-	if(stat & BROKEN)
-		return
-	var/dat = "Gravity Generator Breaker: "
-	if(breaker)
-		dat += "<span class='linkOn'>ON</span> <A href='?src=[REF(src)];gentoggle=1'>OFF</A>"
-	else
-		dat += "<A href='?src=[REF(src)];gentoggle=1'>ON</A> <span class='linkOn'>OFF</span> "
+	data["breaker"] = breaker
+	data["charge_count"] = charge_count
+	data["charging_state"] = charging_state
+	data["on"] = on
+	data["operational"] = (stat & BROKEN) ? FALSE : TRUE
 
-	dat += "<br>Generator Status:<br><div class='statusDisplay'>"
-	if(charging_state != POWER_IDLE)
-		dat += "<font class='bad'>WARNING</font> Radiation Detected. <br>[charging_state == POWER_UP ? "Charging..." : "Discharging..."]"
-	else if(on)
-		dat += "Powered."
-	else
-		dat += "Unpowered."
+	return data
 
-	dat += "<br>Gravity Charge: [charge_count]%</div>"
-
-	var/datum/browser/popup = new(user, "gravgen", name)
-	popup.set_content(dat)
-	popup.open()
-
-
-/obj/machinery/gravity_generator/main/Topic(href, href_list)
-
+/obj/machinery/gravity_generator/main/ui_act(action, params)
 	if(..())
 		return
 
-	if(href_list["gentoggle"])
-		breaker = !breaker
-		investigate_log("was toggled [breaker ? "<font color='green'>ON</font>" : "<font color='red'>OFF</font>"] by [usr.key].", INVESTIGATE_GRAVITY)
-		set_power()
-		src.updateUsrDialog()
+	switch(action)
+		if("gentoggle")
+			breaker = !breaker
+			investigate_log("was toggled [breaker ? "<font color='green'>ON</font>" : "<font color='red'>OFF</font>"] by [key_name(usr)].", INVESTIGATE_GRAVITY)
+			set_power()
 
 // Power and Icon States
 
 /obj/machinery/gravity_generator/main/power_change()
-	..()
+	. = ..()
 	investigate_log("has [stat & NOPOWER ? "lost" : "regained"] power.", INVESTIGATE_GRAVITY)
 	set_power()
 
@@ -299,18 +288,17 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 	use_power = on ? ACTIVE_POWER_USE : IDLE_POWER_USE
 	// Sound the alert if gravity was just enabled or disabled.
 	var/alert = FALSE
-	var/area/A = get_area(src)
 	if(SSticker.IsRoundInProgress())
 		if(on) // If we turned on and the game is live.
 			if(gravity_in_level() == 0)
 				alert = 1
 				investigate_log("was brought online and is now producing gravity for this level.", INVESTIGATE_GRAVITY)
-				message_admins("The gravity generator was brought online [A][ADMIN_COORDJMP(src)]")
+				message_admins("The gravity generator was brought online [ADMIN_VERBOSEJMP(src)]")
 		else
 			if(gravity_in_level() == 1)
 				alert = 1
 				investigate_log("was brought offline and there is now no gravity for this level.", INVESTIGATE_GRAVITY)
-				message_admins("The gravity generator was brought offline with no backup generator. [A][ADMIN_COORDJMP(src)]")
+				message_admins("The gravity generator was brought offline with no backup generator. [ADMIN_VERBOSEJMP(src)]")
 
 	update_icon()
 	update_list()
@@ -369,7 +357,8 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 /obj/machinery/gravity_generator/main/proc/shake_everyone()
 	var/turf/T = get_turf(src)
 	var/sound/alert_sound = sound('sound/effects/alert.ogg')
-	for(var/mob/M in GLOB.mob_list)
+	for(var/i in GLOB.mob_list)
+		var/mob/M = i
 		if(M.z != z)
 			continue
 		M.update_gravity(M.mob_has_gravity())
@@ -394,6 +383,11 @@ GLOBAL_LIST_EMPTY(gravity_generators) // We will keep track of this by adding ne
 			GLOB.gravity_generators["[T.z]"] |= src
 		else
 			GLOB.gravity_generators["[T.z]"] -= src
+
+/obj/machinery/gravity_generator/main/proc/change_setting(value)
+	if(value != setting)
+		setting = value
+		shake_everyone()
 
 // Misc
 

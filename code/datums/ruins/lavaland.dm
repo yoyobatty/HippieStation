@@ -104,7 +104,7 @@
 /datum/map_template/ruin/lavaland/sin/pride
 	name = "Ruin of Pride"
 	id = "pride"
-	description = "Wormhole lifebelts are for LOSERS, who you are better than."
+	description = "Wormhole lifebelts are for LOSERS, whom you are better than."
 	suffix = "lavaland_surface_pride.dmm"
 
 /datum/map_template/ruin/lavaland/sin/sloth
@@ -115,12 +115,20 @@
 	// Generates nothing but atmos runtimes and salt
 	cost = 0
 
+/datum/map_template/ruin/lavaland/ratvar
+	name = "Dead God"
+	id = "ratvar"
+	description = "Ratvar's final resting place."
+	suffix = "lavaland_surface_dead_ratvar.dmm"
+	cost = 0
+	allow_duplicates = FALSE
+
 /datum/map_template/ruin/lavaland/hierophant
 	name = "Hierophant's Arena"
 	id = "hierophant"
 	description = "A strange, square chunk of metal of massive size. Inside awaits only death and many, many squares."
 	suffix = "lavaland_surface_hierophant.dmm"
-	cost = -1
+	always_place = TRUE
 	allow_duplicates = FALSE
 
 /datum/map_template/ruin/lavaland/blood_drunk_miner
@@ -171,7 +179,7 @@
 /datum/map_template/ruin/lavaland/pizza
 	name = "Ruined Pizza Party"
 	id = "pizza"
-	description = "Little Timmy's birthday pizza-bash took a turn for the worse when a bluespace anomaly passed by."
+	description = "Little Timmy's birthday pizza bash took a turn for the worse when a bluespace anomaly passed by."
 	suffix = "lavaland_surface_pizzaparty.dmm"
 	allow_duplicates = FALSE
 	cost = 5
@@ -179,7 +187,7 @@
 /datum/map_template/ruin/lavaland/cultaltar
 	name = "Summoning Ritual"
 	id = "cultaltar"
-	description = "A place of vile worship, the scrawling of blood in the middle glowing eerily. A demonic laugh echoes throughout the caverns"
+	description = "A place of vile worship, the scrawling of blood in the middle glowing eerily. A demonic laugh echoes throughout the caverns."
 	suffix = "lavaland_surface_cultaltar.dmm"
 	allow_duplicates = FALSE
 	cost = 10
@@ -206,4 +214,11 @@
 	description = "A heavily-damaged mining ripley, property of a very unfortunate miner. You might have to do a bit of work to fix this thing up."
 	suffix = "lavaland_surface_random_ripley.dmm"
 	allow_duplicates = FALSE
+	cost = 5
+
+/datum/map_template/ruin/lavaland/puzzle
+	name = "Ancient Puzzle"
+	id = "puzzle"
+	description = "Mystery to be solved."
+	suffix = "lavaland_surface_puzzle.dmm"
 	cost = 5

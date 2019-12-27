@@ -13,7 +13,7 @@
 	var/capacity = 4
 
 /obj/structure/guncase/Initialize(mapload)
-	..()
+	. = ..()
 	if(mapload)
 		for(var/obj/item/I in loc.contents)
 			if(istype(I, gun_category))
@@ -54,6 +54,9 @@
 		return ..()
 
 /obj/structure/guncase/attack_hand(mob/user)
+	. = ..()
+	if(.)
+		return
 	if(iscyborg(user) || isalien(user))
 		return
 	if(contents.len && open)
@@ -74,14 +77,14 @@
 
 	var/datum/browser/popup = new(user, "gunlocker", "<div align='center'>[name]</div>", 350, 300)
 	popup.set_content(dat)
-	popup.open(0)
+	popup.open(FALSE)
 
 /obj/structure/guncase/Topic(href, href_list)
 	if(href_list["retrieve"])
 		var/obj/item/O = locate(href_list["retrieve"]) in contents
 		if(!O || !istype(O))
 			return
-		if(!usr.canUseTopic(src) || !open)
+		if(!usr.canUseTopic(src, BE_CLOSE) || !open)
 			return
 		if(ishuman(usr))
 			if(!usr.put_in_hands(O))

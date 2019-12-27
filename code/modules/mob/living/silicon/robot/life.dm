@@ -1,7 +1,5 @@
 /mob/living/silicon/robot/Life()
 	set invisibility = 0
-	set background = BACKGROUND_ENABLED
-
 	if (src.notransform)
 		return
 
@@ -23,7 +21,7 @@
 	if(cell && cell.charge)
 		if(cell.charge <= 100)
 			uneq_all()
-		var/amt = Clamp((lamp_intensity - 2) * 2,1,cell.charge) //Always try to use at least one charge per tick, but allow it to completely drain the cell.
+		var/amt = CLAMP((lamp_intensity - 2) * 2,1,cell.charge) //Always try to use at least one charge per tick, but allow it to completely drain the cell.
 		cell.use(amt) //Usage table: 1/tick if off/lowest setting, 4 = 4/tick, 6 = 8/tick, 8 = 12/tick, 10 = 16/tick
 	else
 		uneq_all()
@@ -36,21 +34,6 @@
 		return
 
 	update_cell_hud_icon()
-
-	if(syndicate)
-		if(SSticker.mode.name == "traitor")
-			for(var/datum/mind/tra in SSticker.mode.traitors)
-				if(tra.current)
-					var/I = image('icons/mob/mob.dmi', loc = tra.current, icon_state = "traitor") //no traitor sprite in that dmi!
-					src.client.images += I
-		if(connected_ai)
-			connected_ai.connected_robots -= src
-			connected_ai = null
-		if(mind)
-			if(!mind.special_role)
-				mind.special_role = "traitor"
-				SSticker.mode.traitors += mind
-
 
 /mob/living/silicon/robot/update_health_hud()
 	if(!client || !hud_used)
@@ -91,16 +74,17 @@
 
 //Robots on fire
 /mob/living/silicon/robot/handle_fire()
-	if(..())
+	. = ..()
+	if(.) //if the mob isn't on fire anymore
 		return
 	if(fire_stacks > 0)
 		fire_stacks--
 		fire_stacks = max(0, fire_stacks)
 	else
 		ExtinguishMob()
+		return TRUE
 
 	//adjustFireLoss(3)
-	return
 
 /mob/living/silicon/robot/update_fire()
 	var/mutable_appearance/fire_overlay = mutable_appearance('icons/mob/OnFire.dmi', "Generic_mob_burning")
@@ -109,11 +93,11 @@
 	else
 		cut_overlay(fire_overlay)
 
-/mob/living/silicon/robot/update_canmove()
+/mob/living/silicon/robot/update_mobility()
 	if(stat || buckled || lockcharge)
-		canmove = 0
+		mobility_flags &= ~MOBILITY_MOVE
 	else
-		canmove = 1
+		mobility_flags = MOBILITY_FLAGS_DEFAULT
 	update_transform()
 	update_action_buttons_icon()
-	return canmove
+

@@ -13,7 +13,7 @@
 	item_state = "bulldog"
 	lefthand_file = 'icons/mob/inhands/weapons/guns_lefthand.dmi'
 	righthand_file = 'icons/mob/inhands/weapons/guns_righthand.dmi'
-	armor = list(melee = 0, bullet = 0, laser = 0, energy = 0, bomb = 0, bio = 0, rad = 0, fire = 60, acid = 50)
+	armor = list("melee" = 0, "bullet" = 0, "laser" = 0, "energy" = 0, "bomb" = 0, "bio" = 0, "rad" = 0, "fire" = 60, "acid" = 50)
 	var/maxWeightClass = 20 //The max weight of items that can fit into the cannon
 	var/loadedWeightClass = 0 //The weight of items currently in the cannon
 	var/obj/item/tank/internals/tank = null //The gas tank that is drawn from to fire things
@@ -32,6 +32,8 @@
 	var/charge_tick = 0
 	var/charge_type
 	var/selfcharge = FALSE
+	var/fire_sound = 'sound/weapons/sonic_jackhammer.ogg'
+	var/spin_item = TRUE //Do the projectiles spin when launched?
 	trigger_guard = TRIGGER_GUARD_NORMAL
 
 
@@ -55,7 +57,7 @@
 	return automatic
 
 /obj/item/pneumatic_cannon/examine(mob/user)
-	..()
+	. = ..()
 	var/list/out = list()
 	if(!in_range(user, src))
 		out += "<span class='notice'>You'll need to get closer to see any more.</span>"
@@ -65,7 +67,7 @@
 		CHECK_TICK
 	if(tank)
 		out += "<span class='notice'>[icon2html(tank, user)] It has \a [tank] mounted onto it.</span>"
-	to_chat(user, out.Join("<br>"))
+	. += out.Join("\n")
 
 /obj/item/pneumatic_cannon/attackby(obj/item/W, mob/user, params)
 	if(user.a_intent == INTENT_HARM)
@@ -79,7 +81,7 @@
 			updateTank(W, 0, user)
 	else if(W.type == type)
 		to_chat(user, "<span class='warning'>You're fairly certain that putting a pneumatic cannon inside another pneumatic cannon would cause a spacetime disruption.</span>")
-	else if(istype(W, /obj/item/wrench))
+	else if(W.tool_behaviour == TOOL_WRENCH)
 		switch(pressureSetting)
 			if(1)
 				pressureSetting = 2
@@ -88,7 +90,7 @@
 			if(3)
 				pressureSetting = 1
 		to_chat(user, "<span class='notice'>You tweak \the [src]'s pressure output to [pressureSetting].</span>")
-	else if(istype(W, /obj/item/screwdriver))
+	else if(W.tool_behaviour == TOOL_SCREWDRIVER)
 		if(tank)
 			updateTank(tank, 1, user)
 	else if(loadedWeightClass >= maxWeightClass)
@@ -98,6 +100,8 @@
 		load_item(IW, user)
 
 /obj/item/pneumatic_cannon/proc/can_load_item(obj/item/I, mob/user)
+	if(!istype(I))			//Players can't load non items, this allows for admin varedit inserts.
+		return TRUE
 	if(allowed_typecache && !is_type_in_typecache(I, allowed_typecache))
 		if(user)
 			to_chat(user, "<span class='warning'>[I] won't fit into [src]!</span>")
@@ -125,14 +129,15 @@
 	loadedWeightClass += I.w_class
 	return TRUE
 
-/obj/item/pneumatic_cannon/afterattack(atom/target, mob/living/carbon/human/user, flag, params)
+/obj/item/pneumatic_cannon/afterattack(atom/target, mob/living/user, flag, params)
+	. = ..()
 	if(flag && user.a_intent == INTENT_HARM) //melee attack
 		return
 	if(!istype(user))
 		return
 	Fire(user, target)
 
-/obj/item/pneumatic_cannon/proc/Fire(mob/living/carbon/human/user, var/atom/target)
+/obj/item/pneumatic_cannon/proc/Fire(mob/living/user, var/atom/target)
 	if(!istype(user) && !target)
 		return
 	var/discharge = 0
@@ -147,9 +152,10 @@
 	if(tank && !tank.air_contents.remove(gasPerThrow * pressureSetting))
 		to_chat(user, "<span class='warning'>\The [src] lets out a weak hiss and doesn't react!</span>")
 		return
-	if(user.disabilities & CLUMSY && prob(75) && clumsyCheck)
-		user.visible_message("<span class='warning'>[user] loses their grip on [src], causing it to go off!</span>", "<span class='userdanger'>[src] slips out of your hands and goes off!</span>")
-		user.dropItemToGround(src, TRUE)
+	if(HAS_TRAIT(user, TRAIT_CLUMSY) && prob(75) && clumsyCheck && iscarbon(user))
+		var/mob/living/carbon/C = user
+		C.visible_message("<span class='warning'>[C] loses [C.p_their()] grip on [src], causing it to go off!</span>", "<span class='userdanger'>[src] slips out of your hands and goes off!</span>")
+		C.dropItemToGround(src, TRUE)
 		if(prob(10))
 			target = get_turf(user)
 		else
@@ -159,13 +165,14 @@
 	if(!discharge)
 		user.visible_message("<span class='danger'>[user] fires \the [src]!</span>", \
 				    		 "<span class='danger'>You fire \the [src]!</span>")
-	add_logs(user, target, "fired at", src)
+	log_combat(user, target, "fired at", src)
 	var/turf/T = get_target(target, get_turf(src))
-	playsound(src.loc, 'sound/weapons/sonic_jackhammer.ogg', 50, 1)
+	playsound(src, fire_sound, 50, 1)
 	fire_items(T, user)
-	if(pressureSetting >= 3 && user)
-		user.visible_message("<span class='warning'>[user] is thrown down by the force of the cannon!</span>", "<span class='userdanger'>[src] slams into your shoulder, knocking you down!")
-		user.Knockdown(60)
+	if(pressureSetting >= 3 && iscarbon(user))
+		var/mob/living/carbon/C = user
+		C.visible_message("<span class='warning'>[C] is thrown down by the force of the cannon!</span>", "<span class='userdanger'>[src] slams into your shoulder, knocking you down!")
+		C.Paralyze(60)
 
 /obj/item/pneumatic_cannon/proc/fire_items(turf/target, mob/user)
 	if(fire_mode == PCANNON_FIREALL)
@@ -190,7 +197,7 @@
 	loadedItems -= I
 	loadedWeightClass -= I.w_class
 	I.forceMove(get_turf(src))
-	I.throw_at(target, pressureSetting * 10 * range_multiplier, pressureSetting * 2, user)
+	I.throw_at(target, pressureSetting * 10 * range_multiplier, pressureSetting * 2, user, spin_item)
 	return TRUE
 
 /obj/item/pneumatic_cannon/proc/get_target(turf/target, turf/starting)
@@ -198,46 +205,53 @@
 		return target
 	var/x_o = (target.x - starting.x)
 	var/y_o = (target.y - starting.y)
-	var/new_x = Clamp((starting.x + (x_o * range_multiplier)), 0, world.maxx)
-	var/new_y = Clamp((starting.y + (y_o * range_multiplier)), 0, world.maxy)
+	var/new_x = CLAMP((starting.x + (x_o * range_multiplier)), 0, world.maxx)
+	var/new_y = CLAMP((starting.y + (y_o * range_multiplier)), 0, world.maxy)
 	var/turf/newtarget = locate(new_x, new_y, starting.z)
 	return newtarget
 
-/obj/item/pneumatic_cannon/ghetto //Obtainable by improvised methods; more gas per use, less capacity, but smaller
+/obj/item/pneumatic_cannon/handle_atom_del(atom/A)
+	. = ..()
+	if (loadedItems.Remove(A))
+		var/obj/item/I = A
+		loadedWeightClass -= I.w_class
+	else if (A == tank)
+		tank = null
+		update_icon()
+
+/obj/item/pneumatic_cannon/ghetto //Obtainable by improvised methods; more gas per use, less capacity
 	name = "improvised pneumatic cannon"
 	desc = "A gas-powered, object-firing cannon made out of common parts."
 	force = 5
-	w_class = WEIGHT_CLASS_NORMAL
 	maxWeightClass = 7
 	gasPerThrow = 5
 
 /obj/item/pneumatic_cannon/proc/updateTank(obj/item/tank/internals/thetank, removing = 0, mob/living/carbon/human/user)
 	if(removing)
-		if(!src.tank)
+		if(!tank)
 			return
 		to_chat(user, "<span class='notice'>You detach \the [thetank] from \the [src].</span>")
-		src.tank.loc = get_turf(user)
+		tank.forceMove(user.drop_location())
 		user.put_in_hands(tank)
-		src.tank = null
+		tank = null
 	if(!removing)
-		if(src.tank)
+		if(tank)
 			to_chat(user, "<span class='warning'>\The [src] already has a tank.</span>")
 			return
 		if(!user.transferItemToLoc(thetank, src))
 			return
 		to_chat(user, "<span class='notice'>You hook \the [thetank] up to \the [src].</span>")
-		src.tank = thetank
-	src.update_icons()
+		tank = thetank
+	update_icon()
 
-/obj/item/pneumatic_cannon/proc/update_icons()
-	src.cut_overlays()
+/obj/item/pneumatic_cannon/update_icon()
+	cut_overlays()
 	if(!tank)
 		return
 	add_overlay(tank.icon_state)
-	src.update_icon()
 
 /obj/item/pneumatic_cannon/proc/fill_with_type(type, amount)
-	if(!ispath(type, /obj/item))
+	if(!ispath(type, /obj) && !ispath(type, /mob))
 		return FALSE
 	var/loaded = 0
 	for(var/i in 1 to amount)
@@ -265,9 +279,57 @@
 /obj/item/pneumatic_cannon/pie/Initialize()
 	. = ..()
 	allowed_typecache = pie_typecache
-	
+
 /obj/item/pneumatic_cannon/pie/selfcharge
 	automatic = TRUE
 	selfcharge = TRUE
 	charge_type = /obj/item/reagent_containers/food/snacks/pie/cream
 	maxWeightClass = 60	//20 pies.
+
+/obj/item/pneumatic_cannon/pie/selfcharge/cyborg
+	name = "low velocity pie cannon"
+	automatic = FALSE
+	charge_type = /obj/item/reagent_containers/food/snacks/pie/cream/nostun
+	maxWeightClass = 6		//2 pies
+	charge_ticks = 2		//4 second/pie
+
+/obj/item/pneumatic_cannon/speargun
+	name = "kinetic speargun"
+	desc = "A weapon favored by carp hunters. Fires specialized spears using kinetic energy."
+	icon = 'icons/obj/guns/projectile.dmi'
+	icon_state = "speargun"
+	item_state = "speargun"
+	w_class = WEIGHT_CLASS_BULKY
+	force = 10
+	fire_sound = 'sound/weapons/grenadelaunch.ogg'
+	gasPerThrow = 0
+	checktank = FALSE
+	range_multiplier = 3
+	throw_amount = 1
+	maxWeightClass = 2 //a single magspear
+	spin_item = FALSE
+	var/static/list/magspear_typecache = typecacheof(/obj/item/throwing_star/magspear)
+
+/obj/item/pneumatic_cannon/speargun/Initialize()
+	. = ..()
+	allowed_typecache = magspear_typecache
+
+/obj/item/storage/backpack/magspear_quiver
+	name = "quiver"
+	desc = "A quiver for holding magspears."
+	icon_state = "quiver"
+	item_state = "quiver"
+
+/obj/item/storage/backpack/magspear_quiver/ComponentInitialize()
+	. = ..()
+	var/datum/component/storage/STR = GetComponent(/datum/component/storage)
+	STR.max_items = 20
+	STR.max_combined_w_class = 40
+	STR.display_numerical_stacking = TRUE
+	STR.set_holdable(list(
+		/obj/item/throwing_star/magspear
+		))
+
+/obj/item/storage/backpack/magspear_quiver/PopulateContents()
+	for(var/i in 1 to 20)
+		new /obj/item/throwing_star/magspear(src)

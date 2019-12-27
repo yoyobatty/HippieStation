@@ -10,7 +10,7 @@ They *could* go in their appropriate files, but this is supposed to be modular
 */
 
 
-//Needs to return the amount drained from the atom, if no drain on a power object, return 0, otherwise, return a define.
+//Needs to return the amount drained from the atom, if no drain on a power object, return FALSE, otherwise, return a define.
 /atom/proc/ninjadrain_act()
 	return INVALID_DRAIN
 
@@ -44,16 +44,16 @@ They *could* go in their appropriate files, but this is supposed to be modular
 			if (do_after(H,10, target = src))
 				spark_system.start()
 				playsound(loc, "sparks", 50, 1)
-				cell.charge -= drain
-				S.cell.charge += drain
+				cell.use(drain)
+				S.cell.give(drain)
 				. += drain
 			else
 				break
 
-		if(!emagged)
+		if(!(obj_flags & EMAGGED))
 			flick("apc-spark", G)
 			playsound(loc, "sparks", 50, 1)
-			emagged = TRUE
+			obj_flags |= EMAGGED
 			locked = FALSE
 			update_icon()
 
@@ -89,7 +89,7 @@ They *could* go in their appropriate files, but this is supposed to be modular
 				spark_system.start()
 				playsound(loc, "sparks", 50, 1)
 				charge -= drain
-				S.cell.charge += drain
+				S.cell.give(drain)
 				. += drain
 
 			else
@@ -109,7 +109,7 @@ They *could* go in their appropriate files, but this is supposed to be modular
 			if(S.cell.charge + charge > S.cell.maxcharge)
 				S.cell.charge = S.cell.maxcharge
 			else
-				S.cell.charge += charge
+				S.cell.give(charge)
 			charge = 0
 			corrupt()
 			update_icon()
@@ -130,26 +130,15 @@ They *could* go in their appropriate files, but this is supposed to be modular
 	to_chat(H, "<span class='notice'>Hacking \the [src]...</span>")
 	AI_notify_hack()
 
-	if(files && files.known_tech.len)
-		for(var/datum/tech/current_data in S.stored_research)
-			to_chat(H, "<span class='notice'>Checking \the [current_data.name] database.</span>")
-			if(do_after(H, S.s_delay, target = src) && G.candrain && src)
-				for(var/id in files.known_tech)
-					var/datum/tech/analyzing_data = files.known_tech[id]
-					if(current_data.id == analyzing_data.id)
-						if(analyzing_data.level > current_data.level)
-							to_chat(H, "<span class='notice'>Database:</span> <b>UPDATED</b>.")
-							current_data.level = analyzing_data.level
-							. = DRAIN_RD_HACKED
-						break//Move on to next.
-			else
-				break//Otherwise, quit processing.
-
+	if(stored_research)
+		to_chat(H, "<span class='notice'>Copying files...</span>")
+		if(do_after(H, S.s_delay, target = src) && G.candrain && src)
+			stored_research.copy_research_to(S.stored_research)
 	to_chat(H, "<span class='notice'>Data analyzed. Process finished.</span>")
 
 //RD SERVER//
 //Shamelessly copypasted from above, since these two used to be the same proc, but with MANY colon operators
-/obj/machinery/r_n_d/server/ninjadrain_act(obj/item/clothing/suit/space/space_ninja/S, mob/living/carbon/human/H, obj/item/clothing/gloves/space_ninja/G)
+/obj/machinery/rnd/server/ninjadrain_act(obj/item/clothing/suit/space/space_ninja/S, mob/living/carbon/human/H, obj/item/clothing/gloves/space_ninja/G)
 	if(!S || !H || !G)
 		return INVALID_DRAIN
 
@@ -158,21 +147,10 @@ They *could* go in their appropriate files, but this is supposed to be modular
 	to_chat(H, "<span class='notice'>Hacking \the [src]...</span>")
 	AI_notify_hack()
 
-	if(files && files.known_tech.len)
-		for(var/datum/tech/current_data in S.stored_research)
-			to_chat(H, "<span class='notice'>Checking \the [current_data.name] database.</span>")
-			if(do_after(H, S.s_delay, target = src) && G.candrain && src)
-				for(var/id in files.known_tech)
-					var/datum/tech/analyzing_data = files.known_tech[id]
-					if(current_data.id == analyzing_data.id)
-						if(analyzing_data.level > current_data.level)
-							to_chat(H, "<span class='notice'>Database:</span> <b>UPDATED</b>.")
-							current_data.level = analyzing_data.level
-							. = DRAIN_RD_HACKED
-						break//Move on to next.
-			else
-				break//Otherwise, quit processing.
-
+	if(stored_research)
+		to_chat(H, "<span class='notice'>Copying files...</span>")
+		if(do_after(H, S.s_delay, target = src) && G.candrain && src)
+			stored_research.copy_research_to(S.stored_research)
 	to_chat(H, "<span class='notice'>Data analyzed. Process finished.</span>")
 
 
@@ -191,8 +169,8 @@ They *could* go in their appropriate files, but this is supposed to be modular
 		drain = (round((rand(G.mindrain, G.maxdrain))/2))
 		var/drained = 0
 		if(PN && do_after(H,10, target = src))
-			drained = min(drain, PN.avail)
-			PN.load += drained
+			drained = min(drain, delayed_surplus())
+			add_delayedload(drained)
 			if(drained < drain)//if no power on net, drain apcs
 				for(var/obj/machinery/power/terminal/T in PN.nodes)
 					if(istype(T.master, /obj/machinery/power/apc))
@@ -203,7 +181,7 @@ They *could* go in their appropriate files, but this is supposed to be modular
 		else
 			break
 
-		S.cell.charge += drained
+		S.cell.give(drain)
 		if(S.cell.charge > S.cell.maxcharge)
 			. += (drained-(S.cell.charge - S.cell.maxcharge))
 			S.cell.charge = S.cell.maxcharge
@@ -234,7 +212,7 @@ They *could* go in their appropriate files, but this is supposed to be modular
 				spark_system.start()
 				playsound(loc, "sparks", 50, 1)
 				cell.use(drain)
-				S.cell.charge += drain
+				S.cell.give(drain)
 				. += drain
 			else
 				break
@@ -261,8 +239,8 @@ They *could* go in their appropriate files, but this is supposed to be modular
 			if (do_after(H,10))
 				spark_system.start()
 				playsound(loc, "sparks", 50, 1)
-				cell.charge -= drain
-				S.cell.charge += drain
+				cell.use(drain)
+				S.cell.give(drain)
 				. += drain
 			else
 				break

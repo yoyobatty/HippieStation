@@ -4,7 +4,6 @@
 	name = "exosuit fabricator"
 	desc = "Nothing is being built."
 	density = TRUE
-	anchored = TRUE
 	use_power = IDLE_POWER_USE
 	idle_power_usage = 20
 	active_power_usage = 5000
@@ -12,7 +11,7 @@
 	circuit = /obj/item/circuitboard/machine/mechfab
 	var/time_coeff = 1
 	var/component_coeff = 1
-	var/datum/research/files
+	var/datum/techweb/specialized/autounlocking/exofab/stored_research
 	var/sync = 0
 	var/part_set
 	var/datum/design/being_built
@@ -35,12 +34,12 @@
 								)
 
 /obj/machinery/mecha_part_fabricator/Initialize()
-	var/datum/component/material_container/materials = AddComponent(/datum/component/material_container,
-	 list(MAT_METAL, MAT_GLASS, MAT_SILVER, MAT_GOLD, MAT_DIAMOND, MAT_PLASMA, MAT_URANIUM, MAT_BANANIUM, MAT_TITANIUM, MAT_BLUESPACE),
-		FALSE, list(/obj/item/stack, /obj/item/ore/bluespace_crystal), CALLBACK(src, .proc/is_insertion_ready))
-	materials.precise_insertion = TRUE
-	. = ..()
-	files = new /datum/research(src) //Setup the research data holder.
+    var/datum/component/material_container/materials = AddComponent(/datum/component/material_container,
+     list(MAT_METAL, MAT_GLASS, MAT_SILVER, MAT_GOLD, MAT_DIAMOND, MAT_PLASMA, MAT_URANIUM, MAT_BANANIUM, MAT_TITANIUM, MAT_BLUESPACE), 0,
+        TRUE, /obj/item/stack, CALLBACK(src, .proc/is_insertion_ready), CALLBACK(src, .proc/AfterMaterialInsert))
+    materials.precise_insertion = TRUE
+    stored_research = new
+    return ..()
 
 /obj/machinery/mecha_part_fabricator/RefreshParts()
 	var/T = 0
@@ -48,7 +47,7 @@
 	//maximum stocking amount (default 300000, 600000 at T4)
 	for(var/obj/item/stock_parts/matter_bin/M in component_parts)
 		T += M.rating
-	GET_COMPONENT(materials, /datum/component/material_container)
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	materials.max_amount = (200000 + (T*50000))
 
 	//resources adjustment coefficient (1 -> 0.85 -> 0.7 -> 0.55)
@@ -63,22 +62,16 @@
 		T += Ml.rating
 	time_coeff = round(initial(time_coeff) - (initial(time_coeff)*(T))/5,0.01)
 
-
-/obj/machinery/mecha_part_fabricator/check_access(obj/item/card/id/I)
-	if(istype(I, /obj/item/device/pda))
-		var/obj/item/device/pda/pda = I
-		I = pda.id
-	if(!istype(I) || !I.access) //not ID or no access
-		return 0
-	for(var/req in req_access)
-		if(!(req in I.access)) //doesn't have this access
-			return 0
-	return 1
+/obj/machinery/mecha_part_fabricator/examine(mob/user)
+	. = ..()
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
+	if(in_range(user, src) || isobserver(user))
+		. += "<span class='notice'>The status display reads: Storing up to <b>[materials.max_amount]</b> material units.<br>Material consumption at <b>[component_coeff*100]%</b>.<br>Build time reduced by <b>[100-time_coeff*100]%</b>.<span>"
 
 /obj/machinery/mecha_part_fabricator/emag_act()
-	if(emagged)
+	if(obj_flags & EMAGGED)
 		return
-	emagged = TRUE
+	obj_flags |= EMAGGED
 	req_access = list()
 	say("DB error \[Code 0x00F1\]")
 	sleep(10)
@@ -91,8 +84,8 @@
 
 /obj/machinery/mecha_part_fabricator/proc/output_parts_list(set_name)
 	var/output = ""
-	for(var/v in files.known_designs)
-		var/datum/design/D = files.known_designs[v]
+	for(var/v in stored_research.researched_designs)
+		var/datum/design/D = SSresearch.techweb_design_by_id(v)
 		if(D.build_type & MECHFAB)
 			if(!(set_name in D.category))
 				continue
@@ -116,7 +109,7 @@
 
 /obj/machinery/mecha_part_fabricator/proc/output_available_resources()
 	var/output
-	GET_COMPONENT(materials, /datum/component/material_container)
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	for(var/mat_id in materials.materials)
 		var/datum/material/M = materials.materials[mat_id]
 		output += "<span class=\"res_name\">[M.name]: </span>[M.amount] cm&sup3;"
@@ -136,18 +129,18 @@
 
 /obj/machinery/mecha_part_fabricator/proc/check_resources(datum/design/D)
 	if(D.reagents_list.len) // No reagents storage - no reagent designs.
-		return 0
-	GET_COMPONENT(materials, /datum/component/material_container)
+		return FALSE
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	if(materials.has_materials(get_resources_w_coeff(D)))
-		return 1
-	return 0
+		return TRUE
+	return FALSE
 
 /obj/machinery/mecha_part_fabricator/proc/build_part(datum/design/D)
 	being_built = D
 	desc = "It's building \a [initial(D.name)]."
 	var/list/res_coef = get_resources_w_coeff(D)
 
-	GET_COMPONENT(materials, /datum/component/material_container)
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	materials.use_amount(res_coef)
 	add_overlay("fab-active")
 	use_power = ACTIVE_POWER_USE
@@ -164,7 +157,10 @@
 	being_built = null
 
 	updateUsrDialog()
-	return 1
+
+	process_malfunction(1, (((1/time_coeff) ** 2) * 3)) // hippie -- scientist cremation -- Roboticists are goddamn wankers so I'll give them a 3% chance at low tier to an 18.75% chance at high tier
+
+	return TRUE
 
 /obj/machinery/mecha_part_fabricator/proc/update_queue_on_page()
 	send_byjax(usr,"mecha_fabricator.browser","queue",list_queue())
@@ -172,8 +168,8 @@
 
 /obj/machinery/mecha_part_fabricator/proc/add_part_set_to_queue(set_name)
 	if(set_name in part_sets)
-		for(var/v in files.known_designs)
-			var/datum/design/D = files.known_designs[v]
+		for(var/v in stored_research.researched_designs)
+			var/datum/design/D = SSresearch.techweb_design_by_id(v)
 			if(D.build_type & MECHFAB)
 				if(set_name in D.category)
 					add_to_queue(D)
@@ -186,10 +182,10 @@
 	return queue.len
 
 /obj/machinery/mecha_part_fabricator/proc/remove_from_queue(index)
-	if(!isnum(index) || !IsInteger(index) || !istype(queue) || (index<1 || index>queue.len))
-		return 0
+	if(!isnum(index) || !ISINTEGER(index) || !istype(queue) || (index<1 || index>queue.len))
+		return FALSE
 	queue.Cut(index,++index)
-	return 1
+	return TRUE
 
 /obj/machinery/mecha_part_fabricator/proc/process_queue()
 	var/datum/design/D = queue[1]
@@ -202,12 +198,12 @@
 	temp = null
 	while(D)
 		if(stat&(NOPOWER|BROKEN))
-			return 0
+			return FALSE
 		if(!check_resources(D))
 			say("Not enough resources. Queue processing stopped.")
 			temp = {"<span class='alert'>Not enough resources to build next part.</span><br>
 						<a href='?src=[REF(src)];process_queue=1'>Try again</a> | <a href='?src=[REF(src)];clear_temp=1'>Return</a><a>"}
-			return 0
+			return FALSE
 		remove_from_queue(1)
 		build_part(D)
 		D = listgetindex(queue, 1)
@@ -239,15 +235,7 @@
 	sleep(30) //only sleep if called by user
 
 	for(var/obj/machinery/computer/rdconsole/RDC in oview(7,src))
-		if(!RDC.sync)
-			continue
-		for(var/v in RDC.files.known_tech)
-			var/datum/tech/T = RDC.files.known_tech[v]
-			files.AddTech2Known(T)
-		for(var/v in RDC.files.known_designs)
-			var/datum/design/D = RDC.files.known_designs[v]
-			files.AddDesign2Known(D)
-		files.RefreshResearch()
+		RDC.stored_research.copy_research_to(stored_research)
 		temp = "Processed equipment designs.<br>"
 		//check if the tech coefficients have changed
 		temp += "<a href='?src=[REF(src)];clear_temp=1'>Return</a>"
@@ -266,14 +254,9 @@
 /obj/machinery/mecha_part_fabricator/proc/get_construction_time_w_coeff(datum/design/D, roundto = 1) //aran
 	return round(initial(D.construction_time)*time_coeff, roundto)
 
-/obj/machinery/mecha_part_fabricator/attack_hand(mob/user)
-	if(!(..()))
-		return interact(user)
-
-/obj/machinery/mecha_part_fabricator/interact(mob/user as mob)
+/obj/machinery/mecha_part_fabricator/ui_interact(mob/user as mob)
+	. = ..()
 	var/dat, left_part
-	if (..())
-		return
 	user.set_machine(src)
 	var/turf/exit = get_step(src,(dir))
 	if(exit.density)
@@ -332,9 +315,8 @@
 /obj/machinery/mecha_part_fabricator/Topic(href, href_list)
 	if(..())
 		return
-	var/datum/topic_input/afilter = new /datum/topic_input(href,href_list)
 	if(href_list["part_set"])
-		var/tpart_set = afilter.getStr("part_set")
+		var/tpart_set = href_list["part_set"]
 		if(tpart_set)
 			if(tpart_set=="clear")
 				part_set = null
@@ -342,9 +324,9 @@
 				part_set = tpart_set
 				screen = "parts"
 	if(href_list["part"])
-		var/T = afilter.getStr("part")
-		for(var/v in files.known_designs)
-			var/datum/design/D = files.known_designs[v]
+		var/T = href_list["part"]
+		for(var/v in stored_research.researched_designs)
+			var/datum/design/D = SSresearch.techweb_design_by_id(v)
 			if(D.build_type & MECHFAB)
 				if(D.id == T)
 					if(!processing_queue)
@@ -353,24 +335,24 @@
 						add_to_queue(D)
 					break
 	if(href_list["add_to_queue"])
-		var/T = afilter.getStr("add_to_queue")
-		for(var/v in files.known_designs)
-			var/datum/design/D = files.known_designs[v]
+		var/T = href_list["add_to_queue"]
+		for(var/v in stored_research.researched_designs)
+			var/datum/design/D = SSresearch.techweb_design_by_id(v)
 			if(D.build_type & MECHFAB)
 				if(D.id == T)
 					add_to_queue(D)
 					break
 		return update_queue_on_page()
 	if(href_list["remove_from_queue"])
-		remove_from_queue(afilter.getNum("remove_from_queue"))
+		remove_from_queue(text2num(href_list["remove_from_queue"]))
 		return update_queue_on_page()
 	if(href_list["partset_to_queue"])
-		add_part_set_to_queue(afilter.get("partset_to_queue"))
+		add_part_set_to_queue(href_list["partset_to_queue"])
 		return update_queue_on_page()
 	if(href_list["process_queue"])
 		spawn(0)
 			if(processing_queue || being_built)
-				return 0
+				return FALSE
 			processing_queue = 1
 			process_queue()
 			processing_queue = 0
@@ -379,10 +361,10 @@
 	if(href_list["screen"])
 		screen = href_list["screen"]
 	if(href_list["queue_move"] && href_list["index"])
-		var/index = afilter.getNum("index")
-		var/new_index = index + afilter.getNum("queue_move")
-		if(isnum(index) && isnum(new_index) && IsInteger(index) && IsInteger(new_index))
-			if(IsInRange(new_index,1,queue.len))
+		var/index = text2num(href_list["index"])
+		var/new_index = index + text2num(href_list["queue_move"])
+		if(isnum(index) && isnum(new_index) && ISINTEGER(index) && ISINTEGER(new_index))
+			if(ISINRANGE(new_index,1,queue.len))
 				queue.Swap(index,new_index)
 		return update_queue_on_page()
 	if(href_list["clear_queue"])
@@ -391,9 +373,9 @@
 	if(href_list["sync"])
 		sync()
 	if(href_list["part_desc"])
-		var/T = afilter.getStr("part_desc")
-		for(var/v in files.known_designs)
-			var/datum/design/D = files.known_designs[v]
+		var/T = href_list["part_desc"]
+		for(var/v in stored_research.researched_designs)
+			var/datum/design/D = SSresearch.techweb_design_by_id(v)
 			if(D.build_type & MECHFAB)
 				if(D.id == T)
 					var/obj/part = D.build_path
@@ -404,37 +386,29 @@
 					break
 
 	if(href_list["remove_mat"] && href_list["material"])
-		GET_COMPONENT(materials, /datum/component/material_container)
+		var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 		materials.retrieve_sheets(text2num(href_list["remove_mat"]), href_list["material"])
 
 	updateUsrDialog()
 	return
 
 /obj/machinery/mecha_part_fabricator/on_deconstruction()
-	GET_COMPONENT(materials, /datum/component/material_container)
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	materials.retrieve_all()
 	..()
 
-/obj/machinery/mecha_part_fabricator/ComponentActivated(datum/component/C)
-	..()
-	if(istype(C, /datum/component/material_container))
-		var/datum/component/material_container/M = C
-		if(!M.last_insert_success)
-			return
-		var/stack_name = material2name(M.last_inserted_id)
-		add_overlay("fab-load-[stack_name]")
-		addtimer(CALLBACK(src, /atom/proc/cut_overlay, "fab-load-[stack_name]"), 10)
-		updateUsrDialog()
+/obj/machinery/mecha_part_fabricator/proc/AfterMaterialInsert(type_inserted, id_inserted, amount_inserted)
+	var/stack_name = material2name(id_inserted)
+	add_overlay("fab-load-[stack_name]")
+	addtimer(CALLBACK(src, /atom/proc/cut_overlay, "fab-load-[stack_name]"), 10)
+	updateUsrDialog()
 
 /obj/machinery/mecha_part_fabricator/attackby(obj/item/W, mob/user, params)
 	if(default_deconstruction_screwdriver(user, "fab-o", "fab-idle", W))
-		return 1
-
-	if(exchange_parts(user, W))
-		return 1
+		return TRUE
 
 	if(default_deconstruction_crowbar(W))
-		return 1
+		return TRUE
 
 	return ..()
 
@@ -450,3 +424,14 @@
 		return FALSE
 
 	return TRUE
+
+// hippie start -- percussive maintenance
+
+/obj/machinery/mecha_part_fabricator/attack_hand(mob/living/user)
+	if(user.mind && user.a_intent == INTENT_HARM && HAS_TRAIT(user.mind, TRAIT_BOOT_OF_LIFE))
+		maintain_percussively(user)
+		return TRUE
+	else
+		. = ..()
+
+// hippie end

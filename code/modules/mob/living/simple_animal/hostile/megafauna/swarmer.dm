@@ -1,5 +1,3 @@
-#define MEDAL_PREFIX "Swarmer Beacon"
-
 /*
 
 Swarmer Beacon
@@ -49,13 +47,14 @@ GLOBAL_LIST_INIT(AISwarmerCapsByType, list(/mob/living/simple_animal/hostile/swa
 	icon_state = "swarmer_console"
 	health = 750
 	maxHealth = 750 //""""low-ish"""" HP because it's a passive boss, and the swarm itself is the real foe
-	medal_type = MEDAL_PREFIX
+	mob_biotypes = list(MOB_ROBOTIC)
+	gps_name = "Hungry Signal"
+	medal_type = BOSS_MEDAL_SWARMERS
 	score_type = SWARMER_BEACON_SCORE
 	faction = list("mining", "boss", "swarmer")
 	weather_immunities = list("lava","ash")
 	stop_automated_movement = TRUE
 	wander = FALSE
-	anchored = TRUE
 	layer = BELOW_MOB_LAYER
 	AIStatus = AI_OFF
 	var/swarmer_spawn_cooldown = 0
@@ -68,7 +67,6 @@ GLOBAL_LIST_INIT(AISwarmerCapsByType, list(/mob/living/simple_animal/hostile/swa
 /mob/living/simple_animal/hostile/megafauna/swarmer_swarm_beacon/Initialize()
 	. = ..()
 	swarmer_caps = GLOB.AISwarmerCapsByType //for admin-edits
-	internal = new/obj/item/device/gps/internal/swarmer_beacon(src)
 	for(var/ddir in GLOB.cardinals)
 		new /obj/structure/swarmer/blockade (get_step(src, ddir))
 		var/mob/living/simple_animal/hostile/swarmer/ai/resource/R = new(loc)
@@ -90,12 +88,6 @@ GLOBAL_LIST_INIT(AISwarmerCapsByType, list(/mob/living/simple_animal/hostile/swa
 		call_help_cooldown = world.time + call_help_cooldown_amt
 		summon_backup(25) //long range, only called max once per 15 seconds, so it's not deathlag
 
-
-/obj/item/device/gps/internal/swarmer_beacon
-	icon_state = null
-	gpstag = "Hungry Signal"
-	desc = "Transmited over the signal is a strange message repeated in every language you know of, and some you don't too..." //the message is "nom nom nom"
-	invisibility = 100
 
 //SWARMER AI
 //AI versions of the swarmer mini-antag
@@ -145,7 +137,7 @@ GLOBAL_LIST_INIT(AISwarmerCapsByType, list(/mob/living/simple_animal/hostile/swa
 					return FALSE
 
 			if(ischasm(newloc) && !throwing)
-				throw_at(get_edge_target_turf(src, get_dir(src, newloc)), 7 , 3, spin = FALSE) //my planet needs me
+				throw_at(get_edge_target_turf(src, get_dir(src, newloc)), 7 , 3, src, FALSE) //my planet needs me
 				return FALSE
 
 		return ..()
@@ -292,7 +284,3 @@ GLOBAL_LIST_INIT(AISwarmerCapsByType, list(/mob/living/simple_animal/hostile/swa
 	desc = "A catwalk-like mesh, produced by swarmers to allow them to navigate hostile terrain."
 	icon = 'icons/obj/smooth_structures/swarmer_catwalk.dmi'
 	icon_state = "swarmer_catwalk"
-
-
-
-#undef MEDAL_PREFIX

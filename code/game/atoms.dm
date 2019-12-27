@@ -2,15 +2,10 @@
 	layer = TURF_LAYER
 	plane = GAME_PLANE
 	var/level = 2
+	var/article  // If non-null, overrides a/an/some in all cases
 
-	var/flags_1 = 0
-	var/flags_2 = 0
-
-	var/list/fingerprints
-	var/list/fingerprintshidden
-	var/list/blood_DNA
-	var/container_type = NONE
-	var/admin_spawned = 0	//was this spawned by an admin? used for stat tracking stuff.
+	var/flags_1 = NONE
+	var/interaction_flags_atom = NONE
 	var/datum/reagents/reagents = null
 
 	//This atom's HUD (med/sec, etc) images. Associative list.
@@ -23,29 +18,42 @@
 
 	var/list/atom_colours	 //used to store the different colors on an atom
 							//its inherent color, the colored paint applied on it, special color effect etc...
-	var/initialized = FALSE
 
-	var/list/our_overlays	//our local copy of (non-priority) overlays without byond magic. Use procs in SSoverlays to manipulate
 	var/list/priority_overlays	//overlays that should remain on top and not normally removed when using cut_overlay functions, like c4.
+	var/list/remove_overlays // a very temporary list of overlays to remove
+	var/list/add_overlays // a very temporary list of overlays to add
+
+	var/list/managed_vis_overlays //vis overlays managed by SSvis_overlays to automaticaly turn them like other overlays
 
 	var/datum/proximity_monitor/proximity_monitor
 	var/buckle_message_cooldown = 0
+	var/fingerprintslast
+
+	var/list/filter_data //For handling persistent filters
+
+	var/custom_price
+	var/custom_premium_price
+
+	var/datum/component/orbiter/orbiters
+
+	var/rad_flags = NONE // Will move to flags_1 when i can be arsed to
+	var/rad_insulation = RAD_NO_INSULATION
 
 /atom/New(loc, ...)
 	//atom creation method that preloads variables at creation
 	if(GLOB.use_preloader && (src.type == GLOB._preloader.target_path))//in case the instanciated atom is creating other atoms in New()
-		GLOB._preloader.load(src)
+		world.preloader_load(src)
+
+	if(datum_flags & DF_USE_TAG)
+		GenerateTag()
 
 	var/do_initialize = SSatoms.initialized
-	if(do_initialize > INITIALIZATION_INSSATOMS)
+	if(do_initialize != INITIALIZATION_INSSATOMS)
 		args[1] = do_initialize == INITIALIZATION_INNEW_MAPLOAD
 		if(SSatoms.InitAtom(src, args))
 			//we were deleted
 			return
-
-	var/list/created = SSatoms.created_atoms
-	if(created)
-		created += src
+	SSdemo.mark_new(src) // hippie -- moody blues
 
 //Called after New if the map is being loaded. mapload = TRUE
 //Called from base of New if the map is not being loaded. mapload = FALSE
@@ -57,13 +65,11 @@
 //Note: the following functions don't call the base for optimization and must copypasta:
 // /turf/Initialize
 // /turf/open/space/Initialize
-// /mob/dead/new_player/Initialize
 
-//Do also note that this proc always runs in New for /mob/dead
 /atom/proc/Initialize(mapload, ...)
-	if(initialized)
+	if(flags_1 & INITIALIZED_1)
 		stack_trace("Warning: [src]([type]) initialized multiple times!")
-	initialized = TRUE
+	flags_1 |= INITIALIZED_1
 
 	//atom color stuff
 	if(color)
@@ -76,13 +82,16 @@
 		var/turf/T = loc
 		T.has_opaque_atom = TRUE // No need to recalculate it in this case, it's guaranteed to be on afterwards anyways.
 
+	if (canSmoothWith)
+		canSmoothWith = typelist("canSmoothWith", canSmoothWith)
+
 	ComponentInitialize()
 
 	return INITIALIZE_HINT_NORMAL
 
 //called if Initialize returns INITIALIZE_HINT_LATELOAD
 /atom/proc/LateInitialize()
-	return
+	set waitfor = FALSE
 
 // Put your AddComponent() calls here
 /atom/proc/ComponentInitialize()
@@ -96,6 +105,8 @@
 
 	if(reagents)
 		qdel(reagents)
+
+	orbiters = null // The component is attached to us normaly and will be deleted elsewhere
 
 	LAZYCLEARLIST(overlays)
 	LAZYCLEARLIST(priority_overlays)
@@ -115,7 +126,7 @@
 	if(!T)
 		return FALSE
 
-	if(T.z == ZLEVEL_TRANSIT)
+	if(is_reserved_level(T.z))
 		for(var/A in SSshuttle.mobile)
 			var/obj/docking_port/mobile/M = A
 			if(M.launch_status == ENDGAME_TRANSIT)
@@ -124,7 +135,7 @@
 					if(T in shuttle_area)
 						return TRUE
 
-	if(T.z != ZLEVEL_CENTCOM)//if not, don't bother
+	if(!is_centcom_level(T.z))//if not, don't bother
 		return FALSE
 
 	//Check for centcom itself
@@ -143,22 +154,18 @@
 /atom/proc/onSyndieBase()
 	var/turf/T = get_turf(src)
 	if(!T)
-		return 0
+		return FALSE
 
-	if(T.z != ZLEVEL_CENTCOM)//if not, don't bother
-		return 0
+	if(!is_centcom_level(T.z))//if not, don't bother
+		return FALSE
 
-	if(istype(T.loc, /area/shuttle/syndicate) || istype(T.loc, /area/syndicate_mothership))
-		return 1
+	if(istype(T.loc, /area/shuttle/syndicate) || istype(T.loc, /area/syndicate_mothership) || istype(T.loc, /area/shuttle/assault_pod))
+		return TRUE
 
-	return 0
+	return FALSE
 
-/atom/proc/attack_hulk(mob/living/carbon/human/user, does_attack_animation = 0)
-	SendSignal(COMSIG_ATOM_HULK_ATTACK, user)
-	if(does_attack_animation)
-		user.changeNext_move(CLICK_CD_MELEE)
-		add_logs(user, src, "punched", "hulk powers")
-		user.do_attack_animation(src, ATTACK_EFFECT_SMASH)
+/atom/proc/attack_hulk(mob/living/carbon/human/user)
+	SEND_SIGNAL(src, COMSIG_ATOM_HULK_ATTACK, user)
 
 /atom/proc/CheckParts(list/parts_list)
 	for(var/A in parts_list)
@@ -175,6 +182,10 @@
 			else
 				M.forceMove(src)
 
+//common name
+/atom/proc/update_multiz(prune_on_fail = FALSE)
+	return FALSE
+
 /atom/proc/assume_air(datum/gas_mixture/giver)
 	qdel(giver)
 	return null
@@ -188,35 +199,32 @@
 	else
 		return null
 
+/atom/proc/return_analyzable_air()
+	return null
+
 /atom/proc/check_eye(mob/user)
 	return
 
-
-/atom/proc/CollidedWith(atom/movable/AM)
+/atom/proc/Bumped(atom/movable/AM)
 	set waitfor = FALSE
-	return
+	SEND_SIGNAL(src, COMSIG_ATOM_BUMPED, AM) // hippie -- port bumped comsig for better guardian booms
 
-// Convenience proc to see if a container is open for chemistry handling
-// returns true if open
-// false if closed
+// Convenience procs to see if a container is open for chemistry handling
 /atom/proc/is_open_container()
-	return container_type & OPENCONTAINER_1
+	return is_refillable() && is_drainable()
 
-/atom/proc/is_transparent()
-	return container_type & TRANSPARENT_1
+/atom/proc/is_injectable(mob/user, allowmobs = TRUE)
+	return reagents && (reagents.flags & (INJECTABLE | REFILLABLE))
 
-/atom/proc/is_injectable(allowmobs = TRUE)
-	if(isliving(src) && allowmobs)
-		var/mob/living/L = src
-		return L.can_inject()
-	if(container_type & OPENCONTAINER_1)
-		return TRUE
-	return container_type & INJECTABLE_1
+/atom/proc/is_drawable(mob/user, allowmobs = TRUE)
+	return reagents && (reagents.flags & (DRAWABLE | DRAINABLE))
 
-/atom/proc/is_drawable(allowmobs = TRUE)
-	if(is_injectable(allowmobs)) //Everything that can be injected can also be drawn from, but not vice versa
-		return TRUE
-	return container_type & DRAWABLE_1
+/atom/proc/is_refillable()
+	return reagents && (reagents.flags & REFILLABLE)
+
+/atom/proc/is_drainable()
+	return reagents && (reagents.flags & DRAINABLE)
+
 
 /atom/proc/AllowDrop()
 	return FALSE
@@ -228,52 +236,62 @@
 	return
 
 /atom/proc/emp_act(severity)
-	SendSignal(COMSIG_ATOM_EMP_ACT, severity)
-	if(istype(wires) && !(flags_2 & NO_EMP_WIRES_2))
+	var/protection = SEND_SIGNAL(src, COMSIG_ATOM_EMP_ACT, severity)
+	if(!(protection & EMP_PROTECT_WIRES) && istype(wires))
 		wires.emp_pulse()
+	return protection // Pass the protection value collected here upwards
 
 /atom/proc/bullet_act(obj/item/projectile/P, def_zone)
-	SendSignal(COMSIG_ATOM_BULLET_ACT, P, def_zone)
+	SEND_SIGNAL(src, COMSIG_ATOM_BULLET_ACT, P, def_zone)
 	. = P.on_hit(src, 0, def_zone)
 
 /atom/proc/in_contents_of(container)//can take class or object instance as argument
 	if(ispath(container))
 		if(istype(src.loc, container))
-			return 1
+			return TRUE
 	else if(src in container)
-		return 1
+		return TRUE
+	return FALSE
+
+/atom/proc/get_examine_name(mob/user)
+	. = "\a [src]"
+	var/list/override = list(gender == PLURAL ? "some" : "a", " ", "[name]")
+	if(article)
+		. = "[article] [src]"
+		override[EXAMINE_POSITION_ARTICLE] = article
+	if(SEND_SIGNAL(src, COMSIG_ATOM_GET_EXAMINE_NAME, user, override) & COMPONENT_EXNAME_CHANGED)
+		. = override.Join("")
+
+/atom/proc/get_examine_string(mob/user, thats = FALSE)
+	return "[icon2html(src, user)] [thats? "That's ":""][get_examine_name(user)]"
 
 /atom/proc/examine(mob/user)
-	//This reformat names to get a/an properly working on item descriptions when they are bloody
-	var/f_name = "\a [src]."
-	if(src.blood_DNA && !istype(src, /obj/effect/decal))
-		if(gender == PLURAL)
-			f_name = "some "
-		else
-			f_name = "a "
-		f_name += "<span class='danger'>blood-stained</span> [name]!"
-
-	to_chat(user, "[icon2html(src, user)] That's [f_name]")
+	. = list("[get_examine_string(user, TRUE)].")
 
 	if(desc)
-		to_chat(user, desc)
-	// *****RM
-	//to_chat(user, "[name]: Dn:[density] dir:[dir] cont:[contents] icon:[icon] is:[icon_state] loc:[loc]")
+		. += desc
 
-	if(reagents && (is_open_container() || is_transparent())) //is_open_container() isn't really the right proc for this, but w/e
-		to_chat(user, "It contains:")
-		if(reagents.reagent_list.len)
-			if(user.can_see_reagents()) //Show each individual reagent
-				for(var/datum/reagent/R in reagents.reagent_list)
-					to_chat(user, "[R.volume] units of [R.name]")
-			else //Otherwise, just show the total volume
-				var/total_volume = 0
-				for(var/datum/reagent/R in reagents.reagent_list)
-					total_volume += R.volume
-				to_chat(user, "[total_volume] units of various reagents")
-		else
-			to_chat(user, "Nothing.")
-	SendSignal(COMSIG_PARENT_EXAMINE, user)
+	if(reagents)
+		if(reagents.flags & TRANSPARENT)
+			. += "It contains:"
+			if(length(reagents.reagent_list))
+				if(user.can_see_reagents()) //Show each individual reagent
+					for(var/datum/reagent/R in reagents.reagent_list)
+						. += "[R.volume] units of [R.name]"
+				else //Otherwise, just show the total volume
+					var/total_volume = 0
+					for(var/datum/reagent/R in reagents.reagent_list)
+						total_volume += R.volume
+					. += "[total_volume] units of various reagents"
+			else
+				. += "Nothing."
+		else if(reagents.flags & AMOUNT_VISIBLE)
+			if(reagents.total_volume)
+				. += "<span class='notice'>It has [reagents.total_volume] unit\s left.</span>"
+			else
+				. += "<span class='danger'>It's empty.</span>"
+
+	SEND_SIGNAL(src, COMSIG_PARENT_EXAMINE, user, .)
 
 /atom/proc/relaymove(mob/user)
 	if(buckle_message_cooldown <= world.time)
@@ -281,23 +299,26 @@
 		to_chat(user, "<span class='warning'>You can't move while buckled to [src]!</span>")
 	return
 
+/atom/proc/prevent_content_explosion()
+	return FALSE
+
 /atom/proc/contents_explosion(severity, target)
-	return
+	return //For handling the effects of explosions on contents that would not normally be effected
 
 /atom/proc/ex_act(severity, target)
 	set waitfor = FALSE
 	contents_explosion(severity, target)
-	SendSignal(COMSIG_ATOM_EX_ACT, severity, target)
+	SEND_SIGNAL(src, COMSIG_ATOM_EX_ACT, severity, target)
 
 /atom/proc/blob_act(obj/structure/blob/B)
-	SendSignal(COMSIG_ATOM_BLOB_ACT, B)
+	SEND_SIGNAL(src, COMSIG_ATOM_BLOB_ACT, B)
 	return
 
 /atom/proc/fire_act(exposed_temperature, exposed_volume)
-	SendSignal(COMSIG_ATOM_FIRE_ACT, exposed_temperature, exposed_volume)
+	SEND_SIGNAL(src, COMSIG_ATOM_FIRE_ACT, exposed_temperature, exposed_volume)
 	return
 
-/atom/proc/hitby(atom/movable/AM, skipcatch, hitpush, blocked)
+/atom/proc/hitby(atom/movable/AM, skipcatch, hitpush, blocked, datum/thrownthing/throwingdatum)
 	if(density && !has_gravity(AM)) //thrown stuff bounces off dense stuff in no grav, unless the thrown stuff ends up inside what it hit(embedding, bola, etc...).
 		addtimer(CALLBACK(src, .proc/hitby_react, AM), 2)
 
@@ -305,19 +326,17 @@
 	if(AM && isturf(AM.loc))
 		step(AM, turn(AM.dir, 180))
 
-GLOBAL_LIST_EMPTY(blood_splatter_icons)
-
-/atom/proc/blood_splatter_index()
-	return "[REF(initial(icon))]-[initial(icon_state)]"
+/atom/proc/handle_slip(mob/living/carbon/C, knockdown_amount, obj/O, lube, paralyze, force_drop)
+	return
 
 //returns the mob's dna info as a list, to be inserted in an object's blood_DNA list
 /mob/living/proc/get_blood_dna_list()
-	if(get_blood_id() != "blood")
+	if(get_blood_id() != /datum/reagent/blood)
 		return
 	return list("ANIMAL DNA" = "Y-")
 
 /mob/living/carbon/get_blood_dna_list()
-	if(get_blood_id() != "blood")
+	if(get_blood_id() != /datum/reagent/blood)
 		return
 	var/list/blood_dna = list()
 	if(dna)
@@ -329,164 +348,94 @@ GLOBAL_LIST_EMPTY(blood_splatter_icons)
 /mob/living/carbon/alien/get_blood_dna_list()
 	return list("UNKNOWN DNA" = "X*")
 
+/mob/living/silicon/get_blood_dna_list()
+	return list("MOTOR OIL" = "SAE 5W-30") //just a little flavor text.
+
 //to add a mob's dna info into an object's blood_DNA list.
 /atom/proc/transfer_mob_blood_dna(mob/living/L)
 	// Returns 0 if we have that blood already
 	var/new_blood_dna = L.get_blood_dna_list()
 	if(!new_blood_dna)
-		return 0
-	if(!blood_DNA)	//if our list of DNA doesn't exist yet, initialise it.
-		blood_DNA = list()
-	var/old_length = blood_DNA.len
-	blood_DNA |= new_blood_dna
-	if(blood_DNA.len == old_length)
-		return 0
-	return 1
-
-//to add blood dna info to the object's blood_DNA list
-/atom/proc/transfer_blood_dna(list/blood_dna)
-	if(!blood_DNA)
-		blood_DNA = list()
-	var/old_length = blood_DNA.len
-	blood_DNA |= blood_dna
-	if(blood_DNA.len > old_length)
-		return 1//some new blood DNA was added
-
+		return FALSE
+	var/old_length = blood_DNA_length()
+	add_blood_DNA(new_blood_dna)
+	if(blood_DNA_length() == old_length)
+		return FALSE
+	return TRUE
 
 //to add blood from a mob onto something, and transfer their dna info
 /atom/proc/add_mob_blood(mob/living/M)
 	var/list/blood_dna = M.get_blood_dna_list()
 	if(!blood_dna)
-		return 0
-	return add_blood(blood_dna)
-
-//to add blood onto something, with blood dna info to include.
-/atom/proc/add_blood(list/blood_dna)
-	return 0
-
-/obj/add_blood(list/blood_dna)
-	return transfer_blood_dna(blood_dna)
-
-/obj/item/add_blood(list/blood_dna)
-	var/blood_count = !blood_DNA ? 0 : blood_DNA.len
-	if(!..())
-		return 0
-	if(!blood_count)//apply the blood-splatter overlay if it isn't already in there
-		add_blood_overlay()
-	return 1 //we applied blood to the item
-
-/obj/item/proc/add_blood_overlay()
-	if(initial(icon) && initial(icon_state))
-		//try to find a pre-processed blood-splatter. otherwise, make a new one
-		var/index = blood_splatter_index()
-		var/icon/blood_splatter_icon = GLOB.blood_splatter_icons[index]
-		if(!blood_splatter_icon)
-			blood_splatter_icon = icon(initial(icon), initial(icon_state), , 1)		//we only want to apply blood-splatters to the initial icon_state for each object
-			blood_splatter_icon.Blend("#fff", ICON_ADD) 			//fills the icon_state with white (except where it's transparent)
-			blood_splatter_icon.Blend(icon('icons/effects/blood.dmi', "itemblood"), ICON_MULTIPLY) //adds blood and the remaining white areas become transparant
-			blood_splatter_icon = fcopy_rsc(blood_splatter_icon)
-			GLOB.blood_splatter_icons[index] = blood_splatter_icon
-		add_overlay(blood_splatter_icon)
-
-/obj/item/clothing/gloves/add_blood(list/blood_dna)
-	. = ..()
-	transfer_blood = rand(2, 4)
-
-/turf/add_blood(list/blood_dna, list/datum/disease/diseases)
-	var/obj/effect/decal/cleanable/blood/splatter/B = locate() in src
-	if(!B)
-		B = new /obj/effect/decal/cleanable/blood/splatter(src, diseases)
-	B.transfer_blood_dna(blood_dna) //give blood info to the blood decal.
-	return 1 //we bloodied the floor
-
-/mob/living/carbon/human/add_blood(list/blood_dna)
-	if(wear_suit)
-		wear_suit.add_blood(blood_dna)
-		update_inv_wear_suit()
-	else if(w_uniform)
-		w_uniform.add_blood(blood_dna)
-		update_inv_w_uniform()
-	if(gloves)
-		var/obj/item/clothing/gloves/G = gloves
-		G.add_blood(blood_dna)
-	else
-		transfer_blood_dna(blood_dna)
-		bloody_hands = rand(2, 4)
-	update_inv_gloves()	//handles bloody hands overlays and updating
-	return 1
-
-/atom/proc/clean_blood()
-	if(islist(blood_DNA))
-		blood_DNA = null
-		return 1
+		return FALSE
+	return add_blood_DNA(blood_dna)
 
 /atom/proc/wash_cream()
-	return 1
-
-/atom/proc/get_global_map_pos()
-	if(!islist(GLOB.global_map) || isemptylist(GLOB.global_map))
-		return
-	var/cur_x = null
-	var/cur_y = null
-	var/list/y_arr = null
-	for(cur_x=1,cur_x<=GLOB.global_map.len,cur_x++)
-		y_arr = GLOB.global_map[cur_x]
-		cur_y = y_arr.Find(src.z)
-		if(cur_y)
-			break
-	if(cur_x && cur_y)
-		return list("x"=cur_x,"y"=cur_y)
-	else
-		return 0
+	return TRUE
 
 /atom/proc/isinspace()
 	if(isspaceturf(get_turf(src)))
-		return 1
+		return TRUE
 	else
-		return 0
+		return FALSE
 
 /atom/proc/handle_fall()
-	return
-
-/atom/proc/handle_slip()
 	return
 
 /atom/proc/singularity_act()
 	return
 
 /atom/proc/singularity_pull(obj/singularity/S, current_size)
-	SendSignal(COMSIG_ATOM_SING_PULL, S, current_size)
+	SEND_SIGNAL(src, COMSIG_ATOM_SING_PULL, S, current_size)
 
 /atom/proc/acid_act(acidpwr, acid_volume)
-	SendSignal(COMSIG_ATOM_ACID_ACT, acidpwr, acid_volume)
+	SEND_SIGNAL(src, COMSIG_ATOM_ACID_ACT, acidpwr, acid_volume)
 
 /atom/proc/emag_act()
-	SendSignal(COMSIG_ATOM_EMAG_ACT)
+	SEND_SIGNAL(src, COMSIG_ATOM_EMAG_ACT)
 
 /atom/proc/rad_act(strength)
-	SendSignal(COMSIG_ATOM_RAD_ACT)
+	SEND_SIGNAL(src, COMSIG_ATOM_RAD_ACT, strength)
 
 /atom/proc/narsie_act()
-	SendSignal(COMSIG_ATOM_NARSIE_ACT)
+	SEND_SIGNAL(src, COMSIG_ATOM_NARSIE_ACT)
 
 /atom/proc/ratvar_act()
-	SendSignal(COMSIG_ATOM_RATVAR_ACT)
+	SEND_SIGNAL(src, COMSIG_ATOM_RATVAR_ACT)
 
 /atom/proc/rcd_vals(mob/user, obj/item/construction/rcd/the_rcd)
 	return FALSE
 
 /atom/proc/rcd_act(mob/user, obj/item/construction/rcd/the_rcd, passed_mode)
-	SendSignal(COMSIG_ATOM_RCD_ACT, user, the_rcd, passed_mode)
+	SEND_SIGNAL(src, COMSIG_ATOM_RCD_ACT, user, the_rcd, passed_mode)
 	return FALSE
 
 /atom/proc/storage_contents_dump_act(obj/item/storage/src_object, mob/user)
-	return 0
+	if(GetComponent(/datum/component/storage))
+		return component_storage_contents_dump_act(src_object, user)
+	return FALSE
+
+/atom/proc/component_storage_contents_dump_act(datum/component/storage/src_object, mob/user)
+	var/list/things = src_object.contents()
+	var/datum/progressbar/progress = new(user, things.len, src)
+	var/datum/component/storage/STR = GetComponent(/datum/component/storage)
+	while (do_after(user, 10, TRUE, src, FALSE, CALLBACK(STR, /datum/component/storage.proc/handle_mass_item_insertion, things, src_object, user, progress)))
+		stoplag(1)
+	qdel(progress)
+	to_chat(user, "<span class='notice'>You dump as much of [src_object.parent]'s contents into [STR.insert_preposition]to [src] as you can.</span>")
+	STR.orient2hud(user)
+	src_object.orient2hud(user)
+	if(user.active_storage) //refresh the HUD to show the transfered contents
+		user.active_storage.close(user)
+		user.active_storage.show_to(user)
+	return TRUE
 
 /atom/proc/get_dumping_location(obj/item/storage/source,mob/user)
 	return null
 
 //This proc is called on the location of an atom when the atom is Destroy()'d
 /atom/proc/handle_atom_del(atom/A)
+	SEND_SIGNAL(src, COMSIG_ATOM_CONTENTS_DEL, A)
 
 //called when the turf the atom resides on is ChangeTurfed
 /atom/proc/HandleTurfChange(turf/T)
@@ -502,27 +451,10 @@ GLOBAL_LIST_EMPTY(blood_splatter_icons)
 /atom/proc/update_remote_sight(mob/living/user)
 	return
 
-/atom/proc/add_vomit_floor(mob/living/carbon/M, toxvomit = 0)
-	if(isturf(src))
-		var/obj/effect/decal/cleanable/vomit/V = new /obj/effect/decal/cleanable/vomit(src, M.get_static_viruses())
-		// Make toxins vomit look different
-		if(toxvomit)
-			V.icon_state = "vomittox_[pick(1,4)]"
-		if(M.reagents)
-			clear_reagents_to_vomit_pool(M,V)
-
-/atom/proc/clear_reagents_to_vomit_pool(mob/living/carbon/M, obj/effect/decal/cleanable/vomit/V)
-	M.reagents.trans_to(V, M.reagents.total_volume / 10)
-	for(var/datum/reagent/R in M.reagents.reagent_list)                //clears the stomach of anything that might be digested as food
-		if(istype(R, /datum/reagent/consumable))
-			var/datum/reagent/consumable/nutri_check = R
-			if(nutri_check.nutriment_factor >0)
-				M.reagents.remove_reagent(R.id,R.volume)
-
 
 //Hook for running code when a dir change occurs
 /atom/proc/setDir(newdir)
-	SendSignal(COMSIG_ATOM_DIR_CHANGE, dir, newdir)
+	SEND_SIGNAL(src, COMSIG_ATOM_DIR_CHANGE, dir, newdir)
 	dir = newdir
 
 /atom/proc/mech_melee_attack(obj/mecha/M)
@@ -593,7 +525,7 @@ GLOBAL_LIST_EMPTY(blood_splatter_icons)
 
 /atom/vv_edit_var(var_name, var_value)
 	if(!GLOB.Debug2)
-		admin_spawned = TRUE
+		flags_1 |= ADMIN_SPAWNED_1
 	. = ..()
 	switch(var_name)
 		if("color")
@@ -601,39 +533,285 @@ GLOBAL_LIST_EMPTY(blood_splatter_icons)
 
 /atom/vv_get_dropdown()
 	. = ..()
-	. += "---"
-	var/turf/curturf = get_turf(src)
-	if (curturf)
-		.["Jump to"] = "?_src_=holder;[HrefToken()];adminplayerobservecoodjump=1;X=[curturf.x];Y=[curturf.y];Z=[curturf.z]"
-	.["Add reagent"] = "?_src_=vars;[HrefToken()];addreagent=[REF(src)]"
-	.["Trigger EM pulse"] = "?_src_=vars;[HrefToken()];emp=[REF(src)]"
-	.["Trigger explosion"] = "?_src_=vars;[HrefToken()];explode=[REF(src)]"
+	VV_DROPDOWN_OPTION("", "---------")
+	if(!ismovableatom(src))
+		var/turf/curturf = get_turf(src)
+		if(curturf)
+			. += "<option value='?_src_=holder;[HrefToken()];adminplayerobservecoodjump=1;X=[curturf.x];Y=[curturf.y];Z=[curturf.z]'>Jump To</option>"
+	VV_DROPDOWN_OPTION(VV_HK_MODIFY_TRANSFORM, "Modify Transform")
+	VV_DROPDOWN_OPTION(VV_HK_ADD_REAGENT, "Add Reagent")
+	VV_DROPDOWN_OPTION(VV_HK_TRIGGER_EMP, "EMP Pulse")
+	VV_DROPDOWN_OPTION(VV_HK_TRIGGER_EXPLOSION, "Explosion")
+
+/atom/vv_do_topic(list/href_list)
+	. = ..()
+	if(href_list[VV_HK_ADD_REAGENT] && check_rights(R_VAREDIT))
+		if(!reagents)
+			var/amount = input(usr, "Specify the reagent size of [src]", "Set Reagent Size", 50) as num
+			if(amount)
+				create_reagents(amount)
+
+		if(reagents)
+			var/chosen_id
+			switch(alert(usr, "Choose a method.", "Add Reagents", "Search", "Choose from a list", "I'm feeling lucky"))
+				if("Search")
+					var/valid_id
+					while(!valid_id)
+						chosen_id = input(usr, "Enter the ID of the reagent you want to add.", "Search reagents") as null|text
+						if(isnull(chosen_id)) //Get me out of here!
+							break
+						if (!ispath(text2path(chosen_id)))
+							chosen_id = pick_closest_path(chosen_id, make_types_fancy(subtypesof(/datum/reagent)))
+							if (ispath(chosen_id))
+								valid_id = TRUE
+						else
+							valid_id = TRUE
+						if(!valid_id)
+							to_chat(usr, "<span class='warning'>A reagent with that ID doesn't exist!</span>")
+				if("Choose from a list")
+					chosen_id = input(usr, "Choose a reagent to add.", "Choose a reagent.") as null|anything in subtypesof(/datum/reagent)
+				if("I'm feeling lucky")
+					chosen_id = pick(subtypesof(/datum/reagent))
+			if(chosen_id)
+				var/amount = input(usr, "Choose the amount to add.", "Choose the amount.", reagents.maximum_volume) as num
+				if(amount)
+					reagents.add_reagent(chosen_id, amount)
+					log_admin("[key_name(usr)] has added [amount] units of [chosen_id] to [src]")
+					message_admins("<span class='notice'>[key_name(usr)] has added [amount] units of [chosen_id] to [src]</span>")
+	if(href_list[VV_HK_TRIGGER_EXPLOSION] && check_rights(R_FUN))
+		usr.client.cmd_admin_explosion(src)
+	if(href_list[VV_HK_TRIGGER_EMP] && check_rights(R_FUN))
+		usr.client.cmd_admin_emp(src)
+	if(href_list[VV_HK_MODIFY_TRANSFORM] && check_rights(R_VAREDIT))
+		var/result = input(usr, "Choose the transformation to apply","Transform Mod") as null|anything in list("Scale","Translate","Rotate")
+		var/matrix/M = transform
+		switch(result)
+			if("Scale")
+				var/x = input(usr, "Choose x mod","Transform Mod") as null|num
+				var/y = input(usr, "Choose y mod","Transform Mod") as null|num
+				if(!isnull(x) && !isnull(y))
+					transform = M.Scale(x,y)
+			if("Translate")
+				var/x = input(usr, "Choose x mod","Transform Mod") as null|num
+				var/y = input(usr, "Choose y mod","Transform Mod") as null|num
+				if(!isnull(x) && !isnull(y))
+					transform = M.Translate(x,y)
+			if("Rotate")
+				var/angle = input(usr, "Choose angle to rotate","Transform Mod") as null|num
+				if(!isnull(angle))
+					transform = M.Turn(angle)
+	if(href_list[VV_HK_AUTO_RENAME] && check_rights(R_VAREDIT))
+		var/newname = input(usr, "What do you want to rename this to?", "Automatic Rename") as null|text
+		if(newname)
+			vv_auto_rename(newname)
+
+/atom/vv_get_header()
+	. = ..()
+	var/refid = REF(src)
+	. += "[VV_HREF_TARGETREF(refid, VV_HK_AUTO_RENAME, "<b id='name'>[src]</b>")]"
+	. += "<br><font size='1'><a href='?_src_=vars;[HrefToken()];rotatedatum=[refid];rotatedir=left'><<</a> <a href='?_src_=vars;[HrefToken()];datumedit=[refid];varnameedit=dir' id='dir'>[dir2text(dir) || dir]</a> <a href='?_src_=vars;[HrefToken()];rotatedatum=[refid];rotatedir=right'>>></a></font>"
 
 /atom/proc/drop_location()
 	var/atom/L = loc
 	if(!L)
 		return null
-	return L.AllowDrop() ? L : get_turf(L)
+	return L.AllowDrop() ? L : L.drop_location()
 
+/atom/proc/vv_auto_rename(newname)
+	name = newname
+
+/**
+  * An atom has entered this atom's contents
+  *
+  * Default behaviour is to send the COMSIG_ATOM_ENTERED
+  */
 /atom/Entered(atom/movable/AM, atom/oldLoc)
-	SendSignal(COMSIG_ATOM_ENTERED, AM, oldLoc)
+	SEND_SIGNAL(src, COMSIG_ATOM_ENTERED, AM, oldLoc)
+
+/atom/Exit(atom/movable/AM, atom/newLoc)
+	. = ..()
+	if(SEND_SIGNAL(src, COMSIG_ATOM_EXIT, AM, newLoc) & COMPONENT_ATOM_BLOCK_EXIT)
+		return FALSE
+
+/atom/Exited(atom/movable/AM, atom/newLoc)
+	SEND_SIGNAL(src, COMSIG_ATOM_EXITED, AM, newLoc)
 
 /atom/proc/return_temperature()
 	return
 
-// Default tool behaviors proc
+// Tool behavior procedure. Redirects to tool-specific procs by default.
+// You can override it to catch all tool interactions, for use in complex deconstruction procs.
+// Just don't forget to return ..() in the end.
+/atom/proc/tool_act(mob/living/user, obj/item/I, tool_type)
+	switch(tool_type)
+		if(TOOL_CROWBAR)
+			. |= crowbar_act(user, I)
+		if(TOOL_MULTITOOL)
+			. |= multitool_act(user, I)
+		if(TOOL_SCREWDRIVER)
+			. |= screwdriver_act(user, I)
+		if(TOOL_WRENCH)
+			. |= wrench_act(user, I)
+		if(TOOL_WIRECUTTER)
+			. |= wirecutter_act(user, I)
+		if(TOOL_WELDER)
+			. |= welder_act(user, I)
+		if(TOOL_ANALYZER)
+			. |= analyzer_act(user, I)
+	if(. & COMPONENT_BLOCK_TOOL_ATTACK)
+		return TRUE
 
-/atom/proc/crowbar_act(mob/user, obj/item/tool)
+//! Tool-specific behavior procs. They send signals, so try to call ..()
+///
+
+///Crowbar act
+/atom/proc/crowbar_act(mob/living/user, obj/item/I)
+	return SEND_SIGNAL(src, COMSIG_ATOM_CROWBAR_ACT, user, I)
+
+/atom/proc/multitool_act(mob/living/user, obj/item/I)
+	return SEND_SIGNAL(src, COMSIG_ATOM_MULTITOOL_ACT, user, I)
+
+/atom/proc/multitool_check_buffer(user, obj/item/I, silent = FALSE)
+	if(!istype(I, /obj/item/multitool))
+		if(user && !silent)
+			to_chat(user, "<span class='warning'>[I] has no data buffer!</span>")
+		return FALSE
+	return TRUE
+
+
+/atom/proc/screwdriver_act(mob/living/user, obj/item/I)
+	return SEND_SIGNAL(src, COMSIG_ATOM_SCREWDRIVER_ACT, user, I)
+
+/atom/proc/wrench_act(mob/living/user, obj/item/I)
+	return SEND_SIGNAL(src, COMSIG_ATOM_WRENCH_ACT, user, I)
+
+/atom/proc/wirecutter_act(mob/living/user, obj/item/I)
+	return SEND_SIGNAL(src, COMSIG_ATOM_WIRECUTTER_ACT, user, I)
+
+/atom/proc/welder_act(mob/living/user, obj/item/I)
+	return SEND_SIGNAL(src, COMSIG_ATOM_WELDER_ACT, user, I)
+
+/atom/proc/analyzer_act(mob/living/user, obj/item/I)
+	return SEND_SIGNAL(src, COMSIG_ATOM_ANALYSER_ACT, user, I)
+
+/atom/proc/GenerateTag()
 	return
 
-/atom/proc/multitool_act(mob/user, obj/item/tool)
+/atom/proc/connect_to_shuttle(obj/docking_port/mobile/port, obj/docking_port/stationary/dock, idnum, override=FALSE)
 	return
 
-/atom/proc/screwdriver_act(mob/user, obj/item/tool)
-	return
+// Generic logging helper
+/atom/proc/log_message(message, message_type, color=null, log_globally=TRUE)
+	if(!log_globally)
+		return
 
-/atom/proc/wrench_act(mob/user, obj/item/tool)
-	return
+	var/log_text = "[key_name(src)] [message] [loc_name(src)]"
+	switch(message_type)
+		if(LOG_ATTACK)
+			log_attack(log_text)
+		if(LOG_SAY)
+			log_say(log_text)
+		if(LOG_WHISPER)
+			log_whisper(log_text)
+		if(LOG_EMOTE)
+			log_emote(log_text)
+		if(LOG_DSAY)
+			log_dsay(log_text)
+		if(LOG_PDA)
+			log_pda(log_text)
+		if(LOG_CHAT)
+			log_chat(log_text)
+		if(LOG_COMMENT)
+			log_comment(log_text)
+		if(LOG_TELECOMMS)
+			log_telecomms(log_text)
+		if(LOG_OOC)
+			log_ooc(log_text)
+		if(LOG_ADMIN)
+			log_admin(log_text)
+		if(LOG_ADMIN_PRIVATE)
+			log_admin_private(log_text)
+		if(LOG_ASAY)
+			log_adminsay(log_text)
+		if(LOG_OWNERSHIP)
+			log_game(log_text)
+		if(LOG_GAME)
+			log_game(log_text)
+		if(LOG_MECHA)
+			log_mecha(log_text)
+		else
+			stack_trace("Invalid individual logging type: [message_type]. Defaulting to [LOG_GAME] (LOG_GAME).")
+			log_game(log_text)
 
-/atom/proc/wirecutter_act(mob/user, obj/item/tool)
-	return
+// Helper for logging chat messages or other logs with arbitrary inputs (e.g. announcements)
+/atom/proc/log_talk(message, message_type, tag=null, log_globally=TRUE, forced_by=null)
+	var/prefix = tag ? "([tag]) " : ""
+	var/suffix = forced_by ? " FORCED by [forced_by]" : ""
+	log_message("[prefix]\"[message]\"[suffix]", message_type, log_globally=log_globally)
+
+// Helper for logging of messages with only one sender and receiver
+/proc/log_directed_talk(atom/source, atom/target, message, message_type, tag)
+	if(!tag)
+		stack_trace("Unspecified tag for private message")
+		tag = "UNKNOWN"
+
+	source.log_talk(message, message_type, tag="[tag] to [key_name(target)]")
+	if(source != target)
+		target.log_talk(message, message_type, tag="[tag] from [key_name(source)]", log_globally=FALSE)
+
+/*
+Proc for attack log creation, because really why not
+1 argument is the actor performing the action
+2 argument is the target of the action
+3 is a verb describing the action (e.g. punched, throwed, kicked, etc.)
+4 is a tool with which the action was made (usually an item)
+5 is any additional text, which will be appended to the rest of the log line
+*/
+
+/proc/log_combat(atom/user, atom/target, what_done, atom/object=null, addition=null)
+	var/ssource = key_name(user)
+	var/starget = key_name(target)
+
+	var/mob/living/living_target = target
+	var/hp = istype(living_target) ? " (NEWHP: [living_target.health]) " : ""
+
+	var/sobject = ""
+	if(object)
+		sobject = " with [object]"
+	var/saddition = ""
+	if(addition)
+		saddition = " [addition]"
+
+	var/postfix = "[sobject][saddition][hp]"
+
+	var/message = "has [what_done] [starget][postfix]"
+	user.log_message(message, LOG_ATTACK, color="red")
+
+	if(user != target)
+		var/reverse_message = "has been [what_done] by [ssource][postfix]"
+		target.log_message(reverse_message, LOG_ATTACK, color="orange", log_globally=FALSE)
+
+// Filter stuff
+/atom/movable/proc/add_filter(name,priority,list/params)
+	if(!filter_data)
+		filter_data = list()
+	var/list/p = params.Copy()
+	p["priority"] = priority
+	filter_data[name] = p
+	update_filters()
+
+/atom/movable/proc/update_filters()
+	filters = null
+	sortTim(filter_data,associative = TRUE)
+	for(var/f in filter_data)
+		var/list/data = filter_data[f]
+		var/list/arguments = data.Copy()
+		arguments -= "priority"
+		filters += filter(arglist(arguments))
+
+/atom/movable/proc/get_filter(name)
+	if(filter_data && filter_data[name])
+		return filters[filter_data.Find(name)]
+
+/atom/proc/intercept_zImpact(atom/movable/AM, levels = 1)
+	return FALSE

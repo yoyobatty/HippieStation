@@ -66,7 +66,7 @@
 #define ui_monkey_neck "CENTER-3:15,SOUTH:5"	//monkey
 #define ui_monkey_back "CENTER-2:16,SOUTH:5"	//monkey
 
-#define ui_alien_storage_l "CENTER-2:14,SOUTH:5"//alien
+//#define ui_alien_storage_l "CENTER-2:14,SOUTH:5"//alien
 #define ui_alien_storage_r "CENTER+1:18,SOUTH:5"//alien
 #define ui_alien_language_menu "EAST-3:26,SOUTH:5" //alien
 
@@ -77,7 +77,8 @@
 
 //Lower right, persistent menu
 #define ui_drop_throw "EAST-1:28,SOUTH+1:7"
-#define ui_pull_resist "EAST-2:26,SOUTH+1:7"
+#define ui_above_movement "EAST-2:26,SOUTH+1:7"
+#define ui_above_intent "EAST-3:24, SOUTH+1:7"
 #define ui_movi "EAST-2:26,SOUTH:5"
 #define ui_acti "EAST-3:24,SOUTH:5"
 #define ui_zonesel "EAST-1:28,SOUTH:5"
@@ -103,6 +104,7 @@
 #define ui_healthdoll "EAST-1:28,CENTER-2:13"
 #define ui_health "EAST-1:28,CENTER-1:15"
 #define ui_internal "EAST-1:28,CENTER:17"
+#define ui_mood "EAST-1:28,CENTER-3:10"
 
 //borgs
 #define ui_borg_health "EAST-1:28,CENTER-1:15"		//borgs have the health display where humans have the pressure damage indicator.
@@ -116,9 +118,8 @@
 #define ui_construct_pull "EAST,CENTER-2:15"
 #define ui_construct_health "EAST,CENTER:15"  //same as borgs and humans
 
-//constructs
-#define ui_construct_pull "EAST,CENTER-2:15"
-#define ui_construct_health "EAST,CENTER:15"  //same as borgs and humans
+//slimes
+#define ui_slime_health "EAST,CENTER:15"  //same as borgs, constructs and humans
 
 // AI
 
@@ -137,6 +138,24 @@
 #define ui_ai_take_picture "SOUTH:6,WEST+12"
 #define ui_ai_view_images "SOUTH:6,WEST+13"
 #define ui_ai_sensor "SOUTH:6,WEST+14"
+#define ui_ai_multicam "SOUTH+1:6,WEST+13"
+#define ui_ai_add_multicam "SOUTH+1:6,WEST+14"
+
+// pAI
+
+#define ui_pai_software "SOUTH:6,WEST"
+#define ui_pai_shell "SOUTH:6,WEST+1"
+#define ui_pai_chassis "SOUTH:6,WEST+2"
+#define ui_pai_rest "SOUTH:6,WEST+3"
+#define ui_pai_light "SOUTH:6,WEST+4"
+#define ui_pai_newscaster "SOUTH:6,WEST+5"
+#define ui_pai_host_monitor "SOUTH:6,WEST+6"
+#define ui_pai_crew_manifest "SOUTH:6,WEST+7"
+#define ui_pai_state_laws "SOUTH:6,WEST+8"
+#define ui_pai_pda_send "SOUTH:6,WEST+9"
+#define ui_pai_pda_log "SOUTH:6,WEST+10"
+#define ui_pai_take_picture "SOUTH:6,WEST+12"
+#define ui_pai_view_images "SOUTH:6,WEST+13"
 
 //Pop-up inventory
 #define ui_shoes "WEST+1:8,SOUTH:5"

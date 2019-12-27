@@ -4,7 +4,6 @@
 	animate_movement = FORWARD_STEPS
 	anchored = TRUE
 	density = TRUE
-	layer = BELOW_OBJ_LAYER
 	var/moving = 0
 	var/datum/gas_mixture/air_contents = new()
 
@@ -28,9 +27,9 @@
 		icon_state = "pod"
 
 /obj/structure/transit_tube_pod/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/crowbar))
+	if(I.tool_behaviour == TOOL_CROWBAR)
 		if(!moving)
-			playsound(src.loc, I.usesound, 50, 1)
+			I.play_tool_sound(src)
 			if(contents.len)
 				user.visible_message("[user] empties \the [src].", "<span class='notice'>You empty \the [src].</span>")
 				empty_pod()
@@ -136,7 +135,7 @@
 		last_delay = current_tube.enter_delay(src, next_dir)
 		sleep(last_delay)
 		setDir(next_dir)
-		loc = next_loc // When moving from one tube to another, skip collision and such.
+		forceMove(next_loc) // When moving from one tube to another, skip collision and such.
 		density = current_tube.density
 
 		if(current_tube && current_tube.should_stop_pod(src, next_dir))
@@ -151,6 +150,9 @@
 		deconstruct(FALSE)	//we automatically deconstruct the pod
 
 /obj/structure/transit_tube_pod/return_air()
+	return air_contents
+
+/obj/structure/transit_tube_pod/return_analyzable_air()
 	return air_contents
 
 /obj/structure/transit_tube_pod/assume_air(datum/gas_mixture/giver)

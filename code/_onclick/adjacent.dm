@@ -29,10 +29,10 @@
 	var/turf/T0 = get_turf(neighbor)
 
 	if(T0 == src) //same turf
-		return 1
+		return TRUE
 
-	if(get_dist(src,T0) > 1) //too far
-		return 0
+	if(get_dist(src, T0) > 1 || z != T0.z) //too far
+		return FALSE
 
 	// Non diagonal case
 	if(T0.x == x || T0.y == y)
@@ -68,9 +68,10 @@
 /atom/movable/Adjacent(var/atom/neighbor)
 	if(neighbor == loc)
 		return TRUE
-	if(!isturf(loc))
+	var/turf/T = loc
+	if(!istype(T))
 		return FALSE
-	if(loc.Adjacent(neighbor,target = neighbor, mover = src))
+	if(T.Adjacent(neighbor,target = neighbor, mover = src))
 		return TRUE
 	return FALSE
 

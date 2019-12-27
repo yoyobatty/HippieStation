@@ -42,7 +42,7 @@
 		return backstab(U,user,backstabforce)
 
 	if(user.zone_selected == "eyes" && active)
-		if(user.disabilities & CLUMSY && prob(50))
+		if(HAS_TRAIT(user, TRAIT_CLUMSY) && prob(50))
 			M = user
 		return eyestab(M,user)
 	else
@@ -69,15 +69,14 @@
 	U.apply_damage(damage, BRUTE, affecting, U.getarmor(affecting, "melee"))
 	U.dropItemToGround(U.get_active_held_item())
 
-	add_logs(user, U, "backstabbed", "[src.name]", "(INTENT: [uppertext(user.a_intent)])")
+	log_combat(user, U, "backstabbed", "[src.name]", "(INTENT: [uppertext(user.a_intent)])")
 
 /obj/item/melee/transforming/butterfly/energy
 	name = "energy balisong"
-	origin_tech = "combat=4;syndicate=3"
 	desc = "A vicious carbon fibre blade and plasma tip allow for unparelled precision strikes against fat Nanotrasen backsides"
 	force_on = 20
 	throwforce_on = 20
-	backstabforce = 80
+	backstabforce = 125
 	item_state_on = "balisong"
 	icon_state = "butterflyknife0"
 	icon_state_on = "butterflyknife_syndie"

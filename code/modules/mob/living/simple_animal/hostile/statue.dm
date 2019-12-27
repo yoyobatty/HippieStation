@@ -9,6 +9,7 @@
 	icon_dead = "human_male"
 	gender = NEUTER
 	a_intent = INTENT_HARM
+	mob_biotypes = list(MOB_INORGANIC, MOB_HUMANOID)
 
 	response_help = "touches"
 	response_disarm = "pushes"
@@ -38,12 +39,14 @@
 	lighting_alpha = LIGHTING_PLANE_ALPHA_MOSTLY_VISIBLE
 	vision_range = 12
 	aggro_vision_range = 12
-	idle_vision_range = 12
 
 	search_objects = 1 // So that it can see through walls
 
 	sight = SEE_SELF|SEE_MOBS|SEE_OBJS|SEE_TURFS
-	anchored = TRUE
+
+	move_force = MOVE_FORCE_EXTREMELY_STRONG
+	move_resist = MOVE_FORCE_EXTREMELY_STRONG
+	pull_force = MOVE_FORCE_EXTREMELY_STRONG
 
 	var/cannot_be_seen = 1
 	var/mob/living/creator = null
@@ -95,7 +98,7 @@
 	else
 		return ..()
 
-/mob/living/simple_animal/hostile/statue/DestroySurroundings()
+/mob/living/simple_animal/hostile/statue/DestroyPathToTarget()
 	if(!can_be_seen(get_turf(loc)))
 		..()
 
@@ -133,7 +136,7 @@
 
 // Cannot talk
 
-/mob/living/simple_animal/hostile/statue/say()
+/mob/living/simple_animal/hostile/statue/say(message, bubble_type, var/list/spans = list(), sanitize = TRUE, datum/language/language = null, ignore_spam = FALSE, forced = null)
 	return 0
 
 // Turn to dust when gibbed
@@ -185,7 +188,7 @@
 	range = 10
 
 /obj/effect/proc_holder/spell/aoe_turf/blindness/cast(list/targets,mob/user = usr)
-	for(var/mob/living/L in GLOB.living_mob_list)
+	for(var/mob/living/L in GLOB.alive_mob_list)
 		var/turf/T = get_turf(L.loc)
 		if(T && T in targets)
 			L.blind_eyes(4)

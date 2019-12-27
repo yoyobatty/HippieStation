@@ -9,3 +9,7 @@
 #define CINEMATIC_NUKE_FAKE 9
 #define CINEMATIC_NUKE_NO_CORE 10
 #define CINEMATIC_NUKE_FAR 11
+#define CINEMATIC_NUKE_CLOWNOP 12
+#define CINEMATIC_CULT_NUKE 13
+#define CINEMATIC_THANOS 14 // hippie edit -- thanos win
+#define CINEMATIC_GANG 15 // hippie edit -- gang win

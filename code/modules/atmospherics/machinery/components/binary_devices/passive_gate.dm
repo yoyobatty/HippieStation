@@ -7,14 +7,16 @@ Passive gate is similar to the regular pump except:
 */
 
 /obj/machinery/atmospherics/components/binary/passive_gate
-	icon_state = "passgate_map"
+	icon_state = "passgate_map-2"
 
 	name = "passive gate"
 	desc = "A one-way air valve that does not require power."
 
 	can_unwrench = TRUE
+	shift_underlay_only = FALSE
 
-	var/on = FALSE
+	interaction_flags_machine = INTERACT_MACHINE_OFFLINE | INTERACT_MACHINE_WIRES_IF_OPEN | INTERACT_MACHINE_ALLOW_SILICON | INTERACT_MACHINE_OPEN_SILICON | INTERACT_MACHINE_SET_MACHINE
+
 	var/target_pressure = ONE_ATMOSPHERE
 
 	var/frequency = 0
@@ -24,25 +26,26 @@ Passive gate is similar to the regular pump except:
 	construction_type = /obj/item/pipe/directional
 	pipe_state = "passivegate"
 
+	ui_x = 335
+	ui_y = 115
+
 /obj/machinery/atmospherics/components/binary/passive_gate/Destroy()
 	SSradio.remove_object(src,frequency)
 	return ..()
 
 /obj/machinery/atmospherics/components/binary/passive_gate/update_icon_nopipes()
-	if(!on)
-		icon_state = "passgate_off"
-		cut_overlays()
-		return
-
-	add_overlay(getpipeimage('icons/obj/atmospherics/components/binary_devices.dmi', "passgate_on"))
+	cut_overlays()
+	icon_state = "passgate_off"
+	if(on)
+		add_overlay(getpipeimage(icon, "passgate_on"))
 
 /obj/machinery/atmospherics/components/binary/passive_gate/process_atmos()
 	..()
 	if(!on)
 		return
 
-	var/datum/gas_mixture/air1 = AIR1
-	var/datum/gas_mixture/air2 = AIR2
+	var/datum/gas_mixture/air1 = airs[1]
+	var/datum/gas_mixture/air2 = airs[2]
 
 	var/output_starting_pressure = air2.return_pressure()
 	var/input_starting_pressure = air1.return_pressure()
@@ -72,31 +75,26 @@ Passive gate is similar to the regular pump except:
 	SSradio.remove_object(src, frequency)
 	frequency = new_frequency
 	if(frequency)
-		radio_connection = SSradio.add_object(src, frequency, filter = GLOB.RADIO_ATMOSIA)
+		radio_connection = SSradio.add_object(src, frequency, filter = RADIO_ATMOSIA)
 
 /obj/machinery/atmospherics/components/binary/passive_gate/proc/broadcast_status()
 	if(!radio_connection)
 		return
 
-	var/datum/signal/signal = new
-	signal.transmission_method = 1 //radio signal
-	signal.source = src
-
-	signal.data = list(
+	var/datum/signal/signal = new(list(
 		"tag" = id,
 		"device" = "AGP",
 		"power" = on,
 		"target_output" = target_pressure,
 		"sigtype" = "status"
-	)
-
-	radio_connection.post_signal(src, signal, filter = GLOB.RADIO_ATMOSIA)
+	))
+	radio_connection.post_signal(src, signal, filter = RADIO_ATMOSIA)
 
 /obj/machinery/atmospherics/components/binary/passive_gate/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, \
 																		datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
 	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
 	if(!ui)
-		ui = new(user, src, ui_key, "atmos_pump", name, 335, 115, master_ui, state)
+		ui = new(user, src, ui_key, "atmos_pump", name, ui_x, ui_y, master_ui, state)
 		ui.open()
 
 /obj/machinery/atmospherics/components/binary/passive_gate/ui_data()
@@ -127,7 +125,7 @@ Passive gate is similar to the regular pump except:
 				pressure = text2num(pressure)
 				. = TRUE
 			if(.)
-				target_pressure = Clamp(pressure, 0, MAX_OUTPUT_PRESSURE)
+				target_pressure = CLAMP(pressure, 0, MAX_OUTPUT_PRESSURE)
 				investigate_log("was set to [target_pressure] kPa by [key_name(usr)]", INVESTIGATE_ATMOS)
 	update_icon()
 
@@ -149,7 +147,7 @@ Passive gate is similar to the regular pump except:
 		on = !on
 
 	if("set_output_pressure" in signal.data)
-		target_pressure = Clamp(text2num(signal.data["set_output_pressure"]),0,ONE_ATMOSPHERE*50)
+		target_pressure = CLAMP(text2num(signal.data["set_output_pressure"]),0,ONE_ATMOSPHERE*50)
 
 	if(on != old_on)
 		investigate_log("was turned [on ? "on" : "off"] by a remote signal", INVESTIGATE_ATMOS)
@@ -161,12 +159,17 @@ Passive gate is similar to the regular pump except:
 	broadcast_status()
 	update_icon()
 
-/obj/machinery/atmospherics/components/binary/passive_gate/power_change()
-	..()
-	update_icon()
-
 /obj/machinery/atmospherics/components/binary/passive_gate/can_unwrench(mob/user)
 	. = ..()
 	if(. && on)
 		to_chat(user, "<span class='warning'>You cannot unwrench [src], turn it off first!</span>")
 		return FALSE
+
+
+/obj/machinery/atmospherics/components/binary/passive_gate/layer1
+	piping_layer = 1
+	icon_state = "passgate_map-1"
+
+/obj/machinery/atmospherics/components/binary/passive_gate/layer3
+	piping_layer = 3
+	icon_state = "passgate_map-3"

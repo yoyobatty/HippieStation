@@ -2,7 +2,7 @@
 	var/bladder_level = 100
 
 /mob/living/carbon/proc/set_bladder(amount)
-	bladder_level = Clamp(bladder_level, 0, 100)
+	bladder_level = CLAMP(bladder_level, 0, 100)
 
 /mob/living/carbon/proc/adjust_bladder(amount)
 	set_bladder(bladder_level+amount)

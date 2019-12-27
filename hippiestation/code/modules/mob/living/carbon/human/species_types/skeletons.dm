@@ -1,3 +1,6 @@
+/datum/species/skeleton
+	attack_sound = 'hippiestation/sound/effects/skeletonhit.ogg'
+
 /datum/species/skeleton/check_roundstart_eligible()
 	return FALSE
 
@@ -8,10 +11,11 @@
 	name = "Spooky Scary Skeleton"
 	id = "spookyskeleton"
 	say_mod = "rattles"
-	blacklisted = 0
 	sexes = 0
 	meat = /obj/item/reagent_containers/food/snacks/meat/slab/human/mutant/skeleton
-	mutant_organs = list(/obj/item/organ/tongue/bone)
 	damage_overlay_type = ""
 	species_traits = list(LIPS)
+	inherent_biotypes = list(MOB_ORGANIC, MOB_HUMANOID)
+	inherent_traits = list()
 	limbs_id = "skeleton"
+	changesource_flags = MIRROR_BADMIN | WABBAJACK | MIRROR_PRIDE | MIRROR_MAGIC | RACE_SWAP | ERT_SPAWN | SLIME_EXTRACT

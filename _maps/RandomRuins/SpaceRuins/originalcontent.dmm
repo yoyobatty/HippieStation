@@ -55,6 +55,7 @@
 /obj/structure/fluff/paper{
 	dir = 4
 	},
+/obj/effect/mapping_helpers/airlock/cyclelink_helper,
 /turf/open/indestructible/paper,
 /area/ruin/powered)
 "ak" = (
@@ -536,7 +537,7 @@
 /turf/open/indestructible/paper,
 /area/ruin/powered)
 "bA" = (
-/obj/item/device/toner,
+/obj/item/toner,
 /turf/open/indestructible/paper,
 /area/ruin/powered)
 "bB" = (
@@ -594,7 +595,7 @@
 /obj/item/paper/crumpled/ruins/originalcontent,
 /obj/item/paper/crumpled/ruins/originalcontent,
 /obj/item/paper/crumpled/ruins/originalcontent,
-/obj/item/device/gps{
+/obj/item/gps{
 	gpstag = "Pulpy Signal"
 	},
 /turf/open/indestructible/paper,
@@ -895,10 +896,28 @@
 /mob/living/simple_animal/hostile/stickman/ranged,
 /turf/open/indestructible/paper,
 /area/ruin/powered)
+"wr" = (
+/obj/machinery/door/airlock/freezer{
+	name = "airlock";
+	opacity = 0
+	},
+/obj/structure/fluff/paper{
+	dir = 8
+	},
+/obj/structure/fluff/paper{
+	dir = 4
+	},
+/obj/effect/mapping_helpers/airlock/cyclelink_helper{
+	dir = 1
+	},
+/turf/open/indestructible/paper,
+/area/ruin/powered)
+"Ns" = (
+/obj/item/paper/secretrecipe,
+/turf/open/indestructible/paper,
+/area/ruin/powered)
 
 (1,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -963,8 +982,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -991,8 +1008,6 @@ aa
 aa
 "}
 (3,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1056,8 +1071,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -1085,8 +1098,6 @@ aa
 aa
 "}
 (5,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1147,8 +1158,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -1179,8 +1188,6 @@ aa
 aa
 "}
 (7,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1236,8 +1243,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ab
 ae
 ae
@@ -1273,8 +1278,6 @@ aa
 aa
 "}
 (9,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1328,8 +1331,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ab
 ae
 ai
@@ -1367,8 +1368,6 @@ aa
 aa
 "}
 (11,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1421,8 +1420,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ab
 ai
 af
@@ -1461,8 +1458,6 @@ af
 bd
 "}
 (13,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1515,8 +1510,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -1555,8 +1548,6 @@ aw
 be
 "}
 (15,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1607,8 +1598,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -1649,8 +1638,6 @@ aa
 aa
 "}
 (17,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1699,8 +1686,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -1743,8 +1728,6 @@ aa
 aa
 "}
 (19,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -1792,8 +1775,6 @@ aa
 (20,1,1) = {"
 aa
 aa
-aa
-aa
 ab
 ai
 af
@@ -1839,8 +1820,6 @@ aa
 (21,1,1) = {"
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -1884,8 +1863,6 @@ aa
 aa
 "}
 (22,1,1) = {"
-aa
-aa
 ab
 ae
 ai
@@ -1931,8 +1908,6 @@ aa
 aa
 "}
 (23,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -1978,8 +1953,6 @@ aa
 aa
 "}
 (24,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2025,8 +1998,6 @@ aa
 aa
 "}
 (25,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2072,8 +2043,6 @@ aa
 aa
 "}
 (26,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2119,8 +2088,6 @@ aa
 aa
 "}
 (27,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2166,8 +2133,6 @@ aa
 aa
 "}
 (28,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2213,8 +2178,6 @@ aa
 aa
 "}
 (29,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2260,8 +2223,6 @@ aa
 aa
 "}
 (30,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2289,7 +2250,7 @@ ap
 az
 af
 al
-aA
+Ns
 bW
 ca
 af
@@ -2307,8 +2268,6 @@ aa
 aa
 "}
 (31,1,1) = {"
-aa
-aa
 ac
 af
 af
@@ -2354,8 +2313,6 @@ aa
 aa
 "}
 (32,1,1) = {"
-aa
-aa
 ad
 ag
 af
@@ -2402,8 +2359,6 @@ aa
 "}
 (33,1,1) = {"
 aa
-aa
-aa
 ac
 af
 al
@@ -2448,8 +2403,6 @@ aa
 aa
 "}
 (34,1,1) = {"
-aa
-aa
 aa
 ac
 af
@@ -2496,8 +2449,6 @@ aa
 "}
 (35,1,1) = {"
 aa
-aa
-aa
 ac
 af
 am
@@ -2542,8 +2493,6 @@ aa
 aa
 "}
 (36,1,1) = {"
-aa
-aa
 aa
 ac
 af
@@ -2590,12 +2539,10 @@ aa
 "}
 (37,1,1) = {"
 aa
-aa
-aa
 ah
 aj
 an
-aj
+wr
 av
 ap
 ap
@@ -2636,8 +2583,6 @@ aa
 aa
 "}
 (38,1,1) = {"
-aa
-aa
 aa
 ac
 af
@@ -2684,8 +2629,6 @@ aa
 "}
 (39,1,1) = {"
 aa
-aa
-aa
 ad
 ag
 af
@@ -2730,8 +2673,6 @@ aa
 aa
 "}
 (40,1,1) = {"
-aa
-aa
 aa
 aa
 ad
@@ -2780,8 +2721,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ad
 ag
 af
@@ -2824,8 +2763,6 @@ aa
 aa
 "}
 (42,1,1) = {"
-aa
-aa
 aa
 aa
 aa
@@ -2877,8 +2814,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ac
 af
 af
@@ -2924,8 +2859,6 @@ aa
 aa
 aa
 aa
-aa
-aa
 ad
 aw
 aw
@@ -2965,8 +2898,6 @@ aa
 aa
 "}
 (45,1,1) = {"
-aa
-aa
 aa
 aa
 aa

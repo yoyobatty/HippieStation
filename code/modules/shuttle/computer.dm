@@ -10,10 +10,8 @@
 	var/admin_controlled
 	var/no_destination_swap = 0
 
-/obj/machinery/computer/shuttle/attack_hand(mob/user)
-	if(..(user))
-		return
-	add_fingerprint(usr)
+/obj/machinery/computer/shuttle/ui_interact(mob/user)
+	. = ..()
 	var/list/options = params2list(possible_destinations)
 	var/obj/docking_port/mobile/M = SSshuttle.getShuttle(shuttleId)
 	var/dat = "Status: [M ? M.getStatusText() : "*Missing*"]<br><br>"
@@ -22,7 +20,7 @@
 		for(var/obj/docking_port/stationary/S in SSshuttle.stationary)
 			if(!options.Find(S.id))
 				continue
-			if(!M.check_dock(S))
+			if(!M.check_dock(S, silent=TRUE))
 				continue
 			destination_found = 1
 			dat += "<A href='?src=[REF(src)];move=[S.id]'>Send to [S.name]</A><br>"
@@ -53,8 +51,15 @@
 			to_chat(usr, "<span class='warning'>You've already escaped. Never going back to that place again!</span>")
 			return
 		if(no_destination_swap)
+			if(M.mode == SHUTTLE_RECHARGING)
+				to_chat(usr, "<span class='warning'>Shuttle engines are not ready for use.</span>")
+				return
 			if(M.mode != SHUTTLE_IDLE)
 				to_chat(usr, "<span class='warning'>Shuttle already in transit.</span>")
+				return
+			if(!(href_list["move"] in params2list(possible_destinations)))
+				log_admin("[usr] attempted to href dock exploit on [src] with target location \"[href_list["move"]]\"")
+				message_admins("[usr] just attempted to href dock exploit on [src] with target location \"[href_list["move"]]\"")
 				return
 		switch(SSshuttle.moveShuttle(shuttleId, href_list["move"], 1))
 			if(0)
@@ -65,9 +70,12 @@
 				to_chat(usr, "<span class='notice'>Unable to comply.</span>")
 
 /obj/machinery/computer/shuttle/emag_act(mob/user)
-	if(emagged)
+	if(obj_flags & EMAGGED)
 		return
 	req_access = list()
-	emagged = TRUE
+	obj_flags |= EMAGGED
 	to_chat(user, "<span class='notice'>You fried the consoles ID checking system.</span>")
 
+/obj/machinery/computer/shuttle/connect_to_shuttle(obj/docking_port/mobile/port, obj/docking_port/stationary/dock, idnum, override=FALSE)
+	if(port && (shuttleId == initial(shuttleId) || override))
+		shuttleId = port.id

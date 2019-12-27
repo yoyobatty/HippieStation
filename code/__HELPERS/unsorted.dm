@@ -9,11 +9,9 @@
 
 	if (!( istext(HTMLstring) ))
 		CRASH("Given non-text argument!")
-		return
 	else
 		if (length(HTMLstring) != 7)
 			CRASH("Given non-HTML argument!")
-			return
 	var/textr = copytext(HTMLstring, 2, 4)
 	var/textg = copytext(HTMLstring, 4, 6)
 	var/textb = copytext(HTMLstring, 6, 8)
@@ -24,7 +22,6 @@
 	textg = num2hex(255 - g, 2)
 	textb = num2hex(255 - b, 2)
 	return text("#[][][]", textr, textg, textb)
-	return
 
 /proc/Get_Angle(atom/movable/start,atom/movable/end)//For beams.
 	if(!start || !end)
@@ -39,6 +36,15 @@
 	if(dy<0)
 		.+=180
 	else if(dx<0)
+		.+=360
+
+/proc/Get_Pixel_Angle(var/y, var/x)//for getting the angle when animating something's pixel_x and pixel_y
+	if(!y)
+		return (x>=0)?90:270
+	.=arctan(x/y)
+	if(y<0)
+		.+=180
+	else if(x<0)
 		.+=360
 
 //Returns location. Returns null if no location was found.
@@ -64,7 +70,6 @@ Turf and target are separate in case you want to teleport some distance from a t
 
 	errorx = abs(errorx)//Error should never be negative.
 	errory = abs(errory)
-	//var/errorxy = round((errorx+errory)/2)//Used for diagonal boxes.
 
 	switch(target.dir)//This can be done through equations but switch is the simpler method. And works fast to boot.
 	//Directs on what values need modifying.
@@ -148,10 +153,10 @@ Turf and target are separate in case you want to teleport some distance from a t
 	var/line[] = list(locate(px,py,M.z))
 	var/dx=N.x-px	//x distance
 	var/dy=N.y-py
-	var/dxabs=abs(dx)//Absolute value of x distance
-	var/dyabs=abs(dy)
-	var/sdx=sign(dx)	//Sign of x distance (+ or -)
-	var/sdy=sign(dy)
+	var/dxabs = abs(dx)//Absolute value of x distance
+	var/dyabs = abs(dy)
+	var/sdx = SIGN(dx)	//Sign of x distance (+ or -)
+	var/sdy = SIGN(dy)
 	var/x=dxabs>>1	//Counters for steps taken, setting to distance/2
 	var/y=dyabs>>1	//Bit-shifting makes me l33t.  It also makes getline() unnessecarrily fast.
 	var/j			//Generic integer for counting
@@ -187,7 +192,7 @@ Turf and target are separate in case you want to teleport some distance from a t
 	return 1
 
 //Generalised helper proc for letting mobs rename themselves. Used to be clname() and ainame()
-/mob/proc/rename_self(role, client/C)
+/mob/proc/apply_pref_name(role, client/C)
 	if(!C)
 		C = client
 	var/oldname = real_name
@@ -195,8 +200,10 @@ Turf and target are separate in case you want to teleport some distance from a t
 	var/loop = 1
 	var/safety = 0
 
+	var/banned = C ? is_banned_from(C.ckey, "Appearance") : null
+
 	while(loop && safety < 5)
-		if(C && C.prefs.custom_names[role] && !safety)
+		if(C && C.prefs.custom_names[role] && !safety && !banned)
 			newname = C.prefs.custom_names[role]
 		else
 			switch(role)
@@ -208,10 +215,8 @@ Turf and target are separate in case you want to teleport some distance from a t
 					newname = pick(GLOB.mime_names)
 				if("ai")
 					newname = pick(GLOB.ai_names)
-				if("deity")
-					newname = pick(GLOB.clown_names|GLOB.ai_names|GLOB.mime_names) //pick any old name
 				else
-					return
+					return FALSE
 
 		for(var/mob/living/M in GLOB.player_list)
 			if(M == src)
@@ -225,6 +230,8 @@ Turf and target are separate in case you want to teleport some distance from a t
 
 	if(newname)
 		fully_replace_character_name(oldname,newname)
+		return TRUE
+	return FALSE
 
 
 //Picks a string of symbols to display as the law number for hacked or ion laws
@@ -234,22 +241,22 @@ Turf and target are separate in case you want to teleport some distance from a t
 //Returns a list of unslaved cyborgs
 /proc/active_free_borgs()
 	. = list()
-	for(var/mob/living/silicon/robot/R in GLOB.living_mob_list)
+	for(var/mob/living/silicon/robot/R in GLOB.alive_mob_list)
 		if(R.connected_ai || R.shell)
 			continue
 		if(R.stat == DEAD)
 			continue
-		if(R.emagged || R.scrambledcodes || R.syndicate)
+		if(R.emagged || R.scrambledcodes)
 			continue
 		. += R
 
 //Returns a list of AI's
 /proc/active_ais(check_mind=0)
 	. = list()
-	for(var/mob/living/silicon/ai/A in GLOB.living_mob_list)
+	for(var/mob/living/silicon/ai/A in GLOB.alive_mob_list)
 		if(A.stat == DEAD)
 			continue
-		if(A.control_disabled == 1)
+		if(A.control_disabled)
 			continue
 		if(check_mind)
 			if(!A.mind)
@@ -342,27 +349,12 @@ Turf and target are separate in case you want to teleport some distance from a t
 		moblist.Add(M)
 	for(var/mob/living/simple_animal/M in sortmob)
 		moblist.Add(M)
-//	for(var/mob/living/silicon/hivebot/M in world)
-//		mob_list.Add(M)
-//	for(var/mob/living/silicon/hive_mainframe/M in world)
-//		mob_list.Add(M)
 	for(var/mob/living/carbon/true_devil/M in sortmob)
 		moblist.Add(M)
 	return moblist
 
-//E = MC^2
-/proc/convert2energy(M)
-	var/E = M*(SPEED_OF_LIGHT_SQ)
-	return E
-
-//M = E/C^2
-/proc/convert2mass(E)
-	var/M = E/(SPEED_OF_LIGHT_SQ)
-	return M
-
-//Takes the value of energy used/produced/ect.
-//Returns a text value of that number in W, kW, MW, or GW.
-/proc/DisplayPower(var/powerused)
+// Format a power value in W, kW, MW, or GW.
+/proc/DisplayPower(powerused)
 	if(powerused < 1000) //Less than a kW
 		return "[powerused] W"
 	else if(powerused < 1000000) //Less than a MW
@@ -371,65 +363,23 @@ Turf and target are separate in case you want to teleport some distance from a t
 		return "[round((powerused * 0.000001),0.001)] MW"
 	return "[round((powerused * 0.000000001),0.0001)] GW"
 
-/proc/key_name(whom, include_link = null, include_name = 1)
-	var/mob/M
-	var/client/C
-	var/key
-	var/ckey
+// Format an energy value in J, kJ, MJ, or GJ. 1W = 1J/s.
+/proc/DisplayJoules(units)
+	if (units < 1000) // Less than a kJ
+		return "[round(units, 0.1)] J"
+	else if (units < 1000000) // Less than a MJ
+		return "[round(units * 0.001, 0.01)] kJ"
+	else if (units < 1000000000) // Less than a GJ
+		return "[round(units * 0.000001, 0.001)] MJ"
+	return "[round(units * 0.000000001, 0.0001)] GJ"
 
-	if(!whom)
-		return "*null*"
-	if(istype(whom, /client))
-		C = whom
-		M = C.mob
-		key = C.key
-		ckey = C.ckey
-	else if(ismob(whom))
-		M = whom
-		C = M.client
-		key = M.key
-		ckey = M.ckey
-	else if(istext(whom))
-		key = whom
-		ckey = ckey(whom)
-		C = GLOB.directory[ckey]
-		if(C)
-			M = C.mob
-	else
-		return "*invalid*"
-
-	. = ""
-
-	if(!ckey)
-		include_link = 0
-
-	if(key)
-		if(C && C.holder && C.holder.fakekey && !include_name)
-			if(include_link)
-				. += "<a href='?priv_msg=[C.findStealthKey()]'>"
-			. += "Administrator"
-		else
-			if(include_link)
-				. += "<a href='?priv_msg=[ckey]'>"
-			. += key
-		if(!C)
-			. += "\[DC\]"
-
-		if(include_link)
-			. += "</a>"
-	else
-		. += "*no key*"
-
-	if(include_name && M)
-		if(M.real_name)
-			. += "/([M.real_name])"
-		else if(M.name)
-			. += "/([M.name])"
-
-	return .
-
-/proc/key_name_admin(whom, include_name = 1)
-	return key_name(whom, 1, include_name)
+// Format an energy value measured in Power Cell units.
+/proc/DisplayEnergy(units)
+	// APCs process every (SSmachines.wait * 0.1) seconds, and turn 1 W of
+	// excess power into GLOB.CELLRATE energy units when charging cells.
+	// With the current configuration of wait=20 and CELLRATE=0.002, this
+	// means that one unit is 1 kJ.
+	return DisplayJoules(units * SSmachines.wait * 0.1 / GLOB.CELLRATE)
 
 /proc/get_mob_by_ckey(key)
 	if(!key)
@@ -501,28 +451,41 @@ Turf and target are separate in case you want to teleport some distance from a t
 	var/y = min(world.maxy, max(1, A.y + dy))
 	return locate(x,y,A.z)
 
+#if DM_VERSION > 513
+#warn 513 is definitely stable now, remove this
+#endif
+#if DM_VERSION < 513
 /proc/arctan(x)
 	var/y=arcsin(x/sqrt(1+x*x))
 	return y
+#endif
 
 /*
 	Gets all contents of contents and returns them all in a list.
 */
 
-/atom/proc/GetAllContents()
+/atom/proc/GetAllContents(var/T)
 	var/list/processing_list = list(src)
 	var/list/assembled = list()
-	while(processing_list.len)
-		var/atom/A = processing_list[1]
-		processing_list.Cut(1, 2)
-		//Byond does not allow things to be in multiple contents, or double parent-child hierarchies, so only += is needed
-		//This is also why we don't need to check against assembled as we go along
-		processing_list += A.contents
-		assembled += A
+	if(T)
+		while(processing_list.len)
+			var/atom/A = processing_list[1]
+			processing_list.Cut(1, 2)
+			//Byond does not allow things to be in multiple contents, or double parent-child hierarchies, so only += is needed
+			//This is also why we don't need to check against assembled as we go along
+			processing_list += A.contents
+			if(istype(A,T))
+				assembled += A
+	else
+		while(processing_list.len)
+			var/atom/A = processing_list[1]
+			processing_list.Cut(1, 2)
+			processing_list += A.contents
+			assembled += A
 	return assembled
 
 /atom/proc/GetAllContentsIgnoring(list/ignore_typecache)
-	if(!ignore_typecache)
+	if(!length(ignore_typecache))
 		return GetAllContents()
 	var/list/processing = list(src)
 	var/list/assembled = list()
@@ -628,14 +591,9 @@ Turf and target are separate in case you want to teleport some distance from a t
 //Takes: Area type as a text string from a variable.
 //Returns: Instance for the area in the world.
 /proc/get_area_instance_from_text(areatext)
-	var/areainstance = null
 	if(istext(areatext))
 		areatext = text2path(areatext)
-	for(var/V in GLOB.sortedAreas)
-		var/area/A = V
-		if(A.type == areatext)
-			areainstance = V
-	return areainstance
+	return GLOB.areas_by_type[areatext]
 
 //Takes: Area type as text string or as typepath OR an instance of the area.
 //Returns: A list of all areas of that type in the world.
@@ -719,21 +677,21 @@ Turf and target are separate in case you want to teleport some distance from a t
 	return
 
 /proc/parse_zone(zone)
-	if(zone == "r_hand")
+	if(zone == BODY_ZONE_PRECISE_R_HAND)
 		return "right hand"
-	else if (zone == "l_hand")
+	else if (zone == BODY_ZONE_PRECISE_L_HAND)
 		return "left hand"
-	else if (zone == "l_arm")
+	else if (zone == BODY_ZONE_L_ARM)
 		return "left arm"
-	else if (zone == "r_arm")
+	else if (zone == BODY_ZONE_R_ARM)
 		return "right arm"
-	else if (zone == "l_leg")
+	else if (zone == BODY_ZONE_L_LEG)
 		return "left leg"
-	else if (zone == "r_leg")
+	else if (zone == BODY_ZONE_R_LEG)
 		return "right leg"
-	else if (zone == "l_foot")
+	else if (zone == BODY_ZONE_PRECISE_L_FOOT)
 		return "left foot"
-	else if (zone == "r_foot")
+	else if (zone == BODY_ZONE_PRECISE_R_FOOT)
 		return "right foot"
 	else
 		return zone
@@ -786,10 +744,10 @@ Turf and target are separate in case you want to teleport some distance from a t
 		return locate(final_x, final_y, T.z)
 
 //Finds the distance between two atoms, in pixels
-//centered = 0 counts from turf edge to edge
-//centered = 1 counts from turf center to turf center
+//centered = FALSE counts from turf edge to edge
+//centered = TRUE counts from turf center to turf center
 //of course mathematically this is just adding world.icon_size on again
-/proc/getPixelDistance(atom/A, atom/B, centered = 1)
+/proc/getPixelDistance(atom/A, atom/B, centered = TRUE)
 	if(!istype(A)||!istype(B))
 		return 0
 	. = bounds_dist(A, B) + sqrt((((A.pixel_x+B.pixel_x)**2) + ((A.pixel_y+B.pixel_y)**2)))
@@ -808,7 +766,9 @@ Turf and target are separate in case you want to teleport some distance from a t
 //e.g: rods
 GLOBAL_LIST_INIT(can_embed_types, typecacheof(list(
 	/obj/item/stack/rods,
-	/obj/item/pipe)))
+	/obj/item/pipe,
+	/obj/item/organ/butt, // hippie -- Because butts arent sharp or pointy
+	/obj/item/dildo))) // hippie -- Dildos must embed
 
 /proc/can_embed(obj/item/W)
 	if(W.is_sharp())
@@ -824,7 +784,7 @@ GLOBAL_LIST_INIT(can_embed_types, typecacheof(list(
 Checks if that loc and dir has an item on the wall
 */
 GLOBAL_LIST_INIT(WALLITEMS, typecacheof(list(
-	/obj/machinery/power/apc, /obj/machinery/airalarm, /obj/item/device/radio/intercom,
+	/obj/machinery/power/apc, /obj/machinery/airalarm, /obj/item/radio/intercom,
 	/obj/structure/extinguisher_cabinet, /obj/structure/reagent_dispensers/peppertank,
 	/obj/machinery/status_display, /obj/machinery/requests_console, /obj/machinery/light_switch, /obj/structure/sign,
 	/obj/machinery/newscaster, /obj/machinery/firealarm, /obj/structure/noticeboard, /obj/machinery/button,
@@ -875,35 +835,13 @@ GLOBAL_LIST_INIT(WALLITEMS_INVERSE, typecacheof(list(
 /proc/format_text(text)
 	return replacetext(replacetext(text,"\proper ",""),"\improper ","")
 
-/obj/proc/atmosanalyzer_scan(datum/gas_mixture/air_contents, mob/user, obj/target = src)
-	var/obj/icon = target
-	user.visible_message("[user] has used the analyzer on [icon2html(icon, viewers(src))] [target].", "<span class='notice'>You use the analyzer on [icon2html(icon, user)] [target].</span>")
-	var/pressure = air_contents.return_pressure()
-	var/total_moles = air_contents.total_moles()
-
-	to_chat(user, "<span class='notice'>Results of analysis of [icon2html(icon, user)] [target].</span>")
-	if(total_moles>0)
-		to_chat(user, "<span class='notice'>Pressure: [round(pressure,0.1)] kPa</span>")
-
-		var/list/cached_gases = air_contents.gases
-
-		for(var/id in cached_gases)
-			var/gas_concentration = cached_gases[id][MOLES]/total_moles
-			if((id in GLOB.hardcoded_gases) || gas_concentration > 0.001) //ensures the four primary gases are always shown.
-				to_chat(user, "<span class='notice'>[cached_gases[id][GAS_META][META_GAS_NAME]]: [round(gas_concentration*100, 0.01)] %</span>")
-
-		to_chat(user, "<span class='notice'>Temperature: [round(air_contents.temperature-T0C)] &deg;C</span>")
-	else
-		to_chat(user, "<span class='notice'>[target] is empty!</span>")
-	return
-
 /proc/check_target_facings(mob/living/initator, mob/living/target)
 	/*This can be used to add additional effects on interactions between mobs depending on how the mobs are facing each other, such as adding a crit damage to blows to the back of a guy's head.
 	Given how click code currently works (Nov '13), the initiating mob will be facing the target mob most of the time
-	That said, this proc should not be used if the change facing proc of the click code is overriden at the same time*/
-	if(!ismob(target) || target.lying)
+	That said, this proc should not be used if the change facing proc of the click code is overridden at the same time*/
+	if(!ismob(target) || !(target.mobility_flags & MOBILITY_STAND))
 	//Make sure we are not doing this for things that can't have a logical direction to the players given that the target would be on their side
-		return FACING_FAILED
+		return FALSE
 	if(initator.dir == target.dir) //mobs are facing the same direction
 		return FACING_SAME_DIR
 	if(is_A_facing_B(initator,target) && is_A_facing_B(target,initator)) //mobs are facing each other
@@ -922,7 +860,7 @@ GLOBAL_LIST_INIT(WALLITEMS_INVERSE, typecacheof(list(
 /proc/living_player_count()
 	var/living_player_count = 0
 	for(var/mob in GLOB.player_list)
-		if(mob in GLOB.living_mob_list)
+		if(mob in GLOB.alive_mob_list)
 			living_player_count += 1
 	return living_player_count
 
@@ -937,7 +875,7 @@ GLOBAL_LIST_INIT(WALLITEMS_INVERSE, typecacheof(list(
 		else
 			return "white"
 
-/proc/params2turf(scr_loc, turf/origin)
+/proc/params2turf(scr_loc, turf/origin, client/C)
 	if(!scr_loc)
 		return null
 	var/tX = splittext(scr_loc, ",")
@@ -946,11 +884,12 @@ GLOBAL_LIST_INIT(WALLITEMS_INVERSE, typecacheof(list(
 	tY = tY[1]
 	tX = splittext(tX[1], ":")
 	tX = tX[1]
-	tX = Clamp(origin.x + text2num(tX) - world.view - 1, 1, world.maxx)
-	tY = Clamp(origin.y + text2num(tY) - world.view - 1, 1, world.maxy)
+	var/list/actual_view = getviewsize(C ? C.view : world.view)
+	tX = CLAMP(origin.x + text2num(tX) - round(actual_view[1] / 2) - 1, 1, world.maxx)
+	tY = CLAMP(origin.y + text2num(tY) - round(actual_view[2] / 2) - 1, 1, world.maxy)
 	return locate(tX, tY, tZ)
 
-/proc/screen_loc2turf(text, turf/origin)
+/proc/screen_loc2turf(text, turf/origin, client/C)
 	if(!text)
 		return null
 	var/tZ = splittext(text, ",")
@@ -959,8 +898,9 @@ GLOBAL_LIST_INIT(WALLITEMS_INVERSE, typecacheof(list(
 	tX = splittext(tZ[2], "-")
 	tX = text2num(tX[2])
 	tZ = origin.z
-	tX = Clamp(origin.x + 7 - tX, 1, world.maxx)
-	tY = Clamp(origin.y + 7 - tY, 1, world.maxy)
+	var/list/actual_view = getviewsize(C ? C.view : world.view)
+	tX = CLAMP(origin.x + round(actual_view[1] / 2) - tX, 1, world.maxx)
+	tY = CLAMP(origin.y + round(actual_view[2] / 2) - tY, 1, world.maxy)
 	return locate(tX, tY, tZ)
 
 /proc/IsValidSrc(datum/D)
@@ -973,18 +913,18 @@ GLOBAL_LIST_INIT(WALLITEMS_INVERSE, typecacheof(list(
 //If one of them is a match, then A is facing B
 /proc/is_A_facing_B(atom/A,atom/B)
 	if(!istype(A) || !istype(B))
-		return 0
+		return FALSE
 	if(isliving(A))
 		var/mob/living/LA = A
-		if(LA.lying)
-			return 0
-	var/goal_dir = angle2dir(dir2angle(get_dir(B,A)+180))
+		if(!(LA.mobility_flags & MOBILITY_STAND))
+			return FALSE
+	var/goal_dir = get_dir(A,B)
 	var/clockwise_A_dir = turn(A.dir, -45)
-	var/anticlockwise_A_dir = turn(B.dir, 45)
+	var/anticlockwise_A_dir = turn(A.dir, 45)
 
 	if(A.dir == goal_dir || clockwise_A_dir == goal_dir || anticlockwise_A_dir == goal_dir)
-		return 1
-	return 0
+		return TRUE
+	return FALSE
 
 
 /*
@@ -1065,25 +1005,24 @@ B --><-- A
 
 //similar function to range(), but with no limitations on the distance; will search spiralling outwards from the center
 /proc/spiral_range(dist=0, center=usr, orange=0)
-	if(!dist)
-		if(!orange)
-			return list(center)
-		else
-			return list()
-
+	var/list/L = list()
 	var/turf/t_center = get_turf(center)
 	if(!t_center)
 		return list()
 
-	var/list/L = list()
+	if(!orange)
+		L += t_center
+		L += t_center.contents
+
+	if(!dist)
+		return L
+
+
 	var/turf/T
 	var/y
 	var/x
 	var/c_dist = 1
 
-	if(!orange)
-		L += t_center
-		L += t_center.contents
 
 	while( c_dist <= dist )
 		y = t_center.y + c_dist
@@ -1190,18 +1129,29 @@ B --><-- A
 	sleep(duration)
 	A.cut_overlay(O)
 
-/proc/get_areas_in_z(zlevel)
-	. = list()
-	var/validarea = FALSE
-	for(var/V in GLOB.sortedAreas)
-		var/area/A = V
-		validarea = TRUE
-		for(var/turf/T in A)
-			if(T.z != zlevel)
-				validarea = FALSE
-				break
-		if(validarea)
-			. += A
+/proc/get_random_station_turf()
+	return safepick(get_area_turfs(pick(GLOB.the_station_areas)))
+
+/proc/get_safe_random_station_turf()
+	for (var/i in 1 to 5)
+		var/list/L = get_area_turfs(pick(GLOB.the_station_areas))
+		var/turf/target
+		while (L.len && !target)
+			var/I = rand(1, L.len)
+			var/turf/T = L[I]
+			if(!T.density)
+				var/clear = TRUE
+				for(var/obj/O in T)
+					if(O.density)
+						clear = FALSE
+						break
+				if(clear)
+					target = T
+			if (!target)
+				L.Cut(I,I+1)
+		if (target)
+			return target
+
 
 /proc/get_closest_atom(type, list, source)
 	var/closest_atom
@@ -1249,6 +1199,14 @@ proc/pick_closest_path(value, list/matches = get_fancy_list_of_atom_types())
 /datum/proc/stack_trace(msg)
 	CRASH(msg)
 
+GLOBAL_REAL_VAR(list/stack_trace_storage)
+/proc/gib_stack_trace()
+	stack_trace_storage = list()
+	stack_trace()
+	stack_trace_storage.Cut(1, min(3,stack_trace_storage.len))
+	. = stack_trace_storage
+	stack_trace_storage = null
+
 //Key thing that stops lag. Cornerstone of performance in ss13, Just sitting here, in unsorted.dm.
 
 //Increases delay as the server gets more overloaded,
@@ -1265,7 +1223,7 @@ proc/pick_closest_path(value, list/matches = get_fancy_list_of_atom_types())
 	. = 0
 	var/i = DS2TICKS(initial_delay)
 	do
-		. += Ceiling(i*DELTA_CALC)
+		. += CEILING(i*DELTA_CALC, 1)
 		sleep(i*world.tick_lag*DELTA_CALC)
 		i *= 2
 	while (TICK_USAGE > min(TICK_LIMIT_TO_RUN, Master.current_ticklimit))
@@ -1286,23 +1244,11 @@ proc/pick_closest_path(value, list/matches = get_fancy_list_of_atom_types())
 	if(!istype(C))
 		return
 
+	var/animate_color = C.color
 	C.color = flash_color
-	animate(C, color = initial(C.color), time = flash_time)
+	animate(C, color = animate_color, time = flash_time)
 
 #define RANDOM_COLOUR (rgb(rand(0,255),rand(0,255),rand(0,255)))
-
-#define QDEL_IN(item, time) addtimer(CALLBACK(GLOBAL_PROC, .proc/qdel, item), time, TIMER_STOPPABLE)
-#define QDEL_IN_CLIENT_TIME(item, time) addtimer(CALLBACK(GLOBAL_PROC, .proc/qdel, item), time, TIMER_STOPPABLE | TIMER_CLIENT_TIME)
-#define QDEL_NULL(item) qdel(item); item = null
-#define QDEL_LIST(L) if(L) { for(var/I in L) qdel(I); L.Cut(); }
-#define QDEL_LIST_IN(L, time) addtimer(CALLBACK(GLOBAL_PROC, .proc/______qdel_list_wrapper, L), time, TIMER_STOPPABLE)
-#define QDEL_LIST_ASSOC(L) if(L) { for(var/I in L) { qdel(L[I]); qdel(I); } L.Cut(); }
-#define QDEL_LIST_ASSOC_VAL(L) if(L) { for(var/I in L) qdel(L[I]); L.Cut(); }
-
-/proc/______qdel_list_wrapper(list/L) //the underscores are to encourage people not to use this directly.
-	QDEL_LIST(L)
-
-
 
 /proc/random_nukecode()
 	var/val = rand(0, 99999)
@@ -1356,8 +1302,11 @@ GLOBAL_DATUM_INIT(dview_mob, /mob/dview, new)
 	invisibility = 101
 	density = FALSE
 	see_in_dark = 1e6
-	anchored = TRUE
+	move_resist = INFINITY
 	var/ready_to_die = FALSE
+
+/mob/dview/Initialize() //Properly prevents this mob from gaining huds or joining any global lists
+	return INITIALIZE_HINT_NORMAL
 
 /mob/dview/Destroy(force = FALSE)
 	if(!ready_to_die)
@@ -1397,7 +1346,7 @@ GLOBAL_DATUM_INIT(dview_mob, /mob/dview, new)
 
 #define UNTIL(X) while(!(X)) stoplag()
 
-/proc/pass()
+/proc/pass(...)
 	return
 
 /proc/get_mob_or_brainmob(occupant)
@@ -1424,11 +1373,6 @@ GLOBAL_DATUM_INIT(dview_mob, /mob/dview, new)
 	temp = ((temp + (temp>>3))&29127) % 63	//070707
 	return temp
 
-//checks if a turf is in the planet z list.
-/proc/turf_z_is_planet(turf/T)
-	return GLOB.z_is_planet["[T.z]"]
-
-
 //same as do_mob except for movables and it allows both to drift and doesn't draw progressbar
 /proc/do_atom(atom/movable/user , atom/movable/target, time = 30, uninterruptible = 0,datum/callback/extra_checks = null)
 	if(!user || !target)
@@ -1446,7 +1390,6 @@ GLOBAL_DATUM_INIT(dview_mob, /mob/dview, new)
 	var/target_loc = target.loc
 
 	var/endtime = world.time+time
-//	var/starttime = world.time
 	. = TRUE
 	while (world.time < endtime)
 		stoplag(1)
@@ -1488,14 +1431,212 @@ GLOBAL_DATUM_INIT(dview_mob, /mob/dview, new)
 
 // \ref behaviour got changed in 512 so this is necesary to replicate old behaviour.
 // If it ever becomes necesary to get a more performant REF(), this lies here in wait
-// #define REF(thing) (thing && istype(thing, /datum) && thing:use_tag && thing:tag ? "[thing:tag]" : "\ref[thing]")
+// #define REF(thing) (thing && istype(thing, /datum) && (thing:datum_flags & DF_USE_TAG) && thing:tag ? "[thing:tag]" : "\ref[thing]")
 /proc/REF(input)
 	if(istype(input, /datum))
 		var/datum/thing = input
-		if(thing.use_tag)
+		if(thing.datum_flags & DF_USE_TAG)
 			if(!thing.tag)
-				WARNING("A ref was requested of an object with use_tag set but no tag: [thing]")
-				thing.use_tag = FALSE
+				stack_trace("A ref was requested of an object with DF_USE_TAG set but no tag: [thing]")
+				thing.datum_flags &= ~DF_USE_TAG
 			else
 				return "\[[url_encode(thing.tag)]\]"
 	return "\ref[input]"
+
+// Makes a call in the context of a different usr
+// Use sparingly
+/world/proc/PushUsr(mob/M, datum/callback/CB, ...)
+	var/temp = usr
+	usr = M
+	if (length(args) > 2)
+		. = CB.Invoke(arglist(args.Copy(3)))
+	else
+		. = CB.Invoke()
+	usr = temp
+
+//Returns a list of all servants of Ratvar and observers.
+/proc/servants_and_ghosts()
+	. = list()
+	for(var/V in GLOB.player_list)
+		if(is_servant_of_ratvar(V) || isobserver(V))
+			. += V
+
+//datum may be null, but it does need to be a typed var
+#define NAMEOF(datum, X) (#X || ##datum.##X)
+
+#define VARSET_LIST_CALLBACK(target, var_name, var_value) CALLBACK(GLOBAL_PROC, /proc/___callbackvarset, ##target, ##var_name, ##var_value)
+//dupe code because dm can't handle 3 level deep macros
+#define VARSET_CALLBACK(datum, var, var_value) CALLBACK(GLOBAL_PROC, /proc/___callbackvarset, ##datum, NAMEOF(##datum, ##var), ##var_value)
+
+/proc/___callbackvarset(list_or_datum, var_name, var_value)
+	if(length(list_or_datum))
+		list_or_datum[var_name] = var_value
+		return
+	var/datum/D = list_or_datum
+	if(IsAdminAdvancedProcCall())
+		D.vv_edit_var(var_name, var_value)	//same result generally, unless badmemes
+	else
+		D.vars[var_name] = var_value
+
+/proc/get_random_food()
+	var/list/blocked = list(/obj/item/reagent_containers/food/snacks/store/bread,
+		/obj/item/reagent_containers/food/snacks/breadslice,
+		/obj/item/reagent_containers/food/snacks/store/cake,
+		/obj/item/reagent_containers/food/snacks/cakeslice,
+		/obj/item/reagent_containers/food/snacks/store,
+		/obj/item/reagent_containers/food/snacks/pie,
+		/obj/item/reagent_containers/food/snacks/kebab,
+		/obj/item/reagent_containers/food/snacks/pizza,
+		/obj/item/reagent_containers/food/snacks/pizzaslice,
+		/obj/item/reagent_containers/food/snacks/salad,
+		/obj/item/reagent_containers/food/snacks/meat,
+		/obj/item/reagent_containers/food/snacks/meat/slab,
+		/obj/item/reagent_containers/food/snacks/soup,
+		/obj/item/reagent_containers/food/snacks/grown,
+		/obj/item/reagent_containers/food/snacks/grown/mushroom,
+		/obj/item/reagent_containers/food/snacks/deepfryholder,
+		// /obj/item/reagent_containers/food/snacks/clothing | Hippie -- removes non-extistant clothing food
+		/obj/item/reagent_containers/food/snacks/grown/shell, //base types
+		/obj/item/reagent_containers/food/snacks/store/bread,
+		/obj/item/reagent_containers/food/snacks/grown/nettle
+		)
+	blocked |= typesof(/obj/item/reagent_containers/food/snacks/customizable)
+
+	return pick(subtypesof(/obj/item/reagent_containers/food/snacks) - blocked)
+
+/proc/get_random_drink()
+	var/list/blocked = list(/obj/item/reagent_containers/food/drinks/soda_cans,
+		/obj/item/reagent_containers/food/drinks/bottle
+		)
+	return pick(subtypesof(/obj/item/reagent_containers/food/drinks) - blocked)
+
+//For these two procs refs MUST be ref = TRUE format like typecaches!
+/proc/weakref_filter_list(list/things, list/refs)
+	if(!islist(things) || !islist(refs))
+		return
+	if(!refs.len)
+		return things
+	if(things.len > refs.len)
+		var/list/f = list()
+		for(var/i in refs)
+			var/datum/weakref/r = i
+			var/datum/d = r.resolve()
+			if(d)
+				f |= d
+		return things & f
+
+	else
+		. = list()
+		for(var/i in things)
+			if(!refs[WEAKREF(i)])
+				continue
+			. |= i
+
+/proc/weakref_filter_list_reverse(list/things, list/refs)
+	if(!islist(things) || !islist(refs))
+		return
+	if(!refs.len)
+		return things
+	if(things.len > refs.len)
+		var/list/f = list()
+		for(var/i in refs)
+			var/datum/weakref/r = i
+			var/datum/d = r.resolve()
+			if(d)
+				f |= d
+
+		return things - f
+	else
+		. = list()
+		for(var/i in things)
+			if(refs[WEAKREF(i)])
+				continue
+			. |= i
+
+/proc/special_list_filter(list/L, datum/callback/condition)
+	if(!islist(L) || !length(L) || !istype(condition))
+		return list()
+	. = list()
+	for(var/i in L)
+		if(condition.Invoke(i))
+			. |= i
+/proc/generate_items_inside(list/items_list,var/where_to)
+	for(var/each_item in items_list)
+		for(var/i in 1 to items_list[each_item])
+			new each_item(where_to)
+
+//sends a message to chat
+//config_setting should be one of the following
+//null - noop
+//empty string - use TgsTargetBroadcast with admin_only = FALSE
+//other string - use TgsChatBroadcast with the tag that matches config_setting, only works with TGS4, if using TGS3 the above method is used
+/proc/send2chat(message, config_setting)
+	if(config_setting == null || !world.TgsAvailable())
+		return
+
+	var/datum/tgs_version/version = world.TgsVersion()
+	if(config_setting == "" || version.suite == 3)
+		world.TgsTargetedChatBroadcast(message, FALSE)
+		return
+
+	var/list/channels_to_use = list()
+	for(var/I in world.TgsChatChannelInfo())
+		var/datum/tgs_chat_channel/channel = I
+		if(channel.tag == config_setting)
+			channels_to_use += channel
+	if(channels_to_use.len)
+		world.TgsChatBroadcast()
+
+/proc/num2sign(numeric)
+	if(numeric > 0)
+		return 1
+	else if(numeric < 0)
+		return -1
+	else
+		return 0
+
+#define TURF_FROM_COORDS_LIST(List) (locate(List[1], List[2], List[3]))
+
+// Converts browser keycodes to BYOND keycodes.
+/proc/browser_keycode_to_byond(keycode)
+	keycode = text2num(keycode)
+	switch(keycode)
+		// letters and numbers
+		if(65 to 90, 48 to 57)
+			return ascii2text(keycode)
+		if(17)
+			return "Ctrl"
+		if(18)
+			return "Alt"
+		if(16)
+			return "Shift"
+		if(37)
+			return "West"
+		if(38)
+			return "North"
+		if(39)
+			return "East"
+		if(40)
+			return "South"
+		if(45)
+			return "Insert"
+		if(46)
+			return "Delete"
+		if(36)
+			return "Northwest"
+		if(35)
+			return "Southwest"
+		if(33)
+			return "Northeast"
+		if(34)
+			return "Southeast"
+		if(112 to 123)
+			return "F[keycode-111]"
+		if(96 to 105)
+			return "Numpad[keycode-96]"
+		if(188)
+			return ","
+		if(190)
+			return "."
+		if(189)
+			return "-"

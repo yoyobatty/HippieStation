@@ -35,6 +35,10 @@
 		flick(pulseicon, src)
 		radiation_pulse(src, 400, 2)
 
+/obj/item/nuke_core/suicide_act(mob/user)
+	user.visible_message("<span class='suicide'>[user] is rubbing [src] against [user.p_them()]self! It looks like [user.p_theyre()] trying to commit suicide!</span>")
+	return (TOXLOSS)
+
 //nuke core box, for carrying the core
 /obj/item/nuke_core_container
 	name = "nuke core container"
@@ -150,14 +154,16 @@
 	if(!iscarbon(user))
 		return FALSE
 	var/mob/ded = user
-	to_chat(user, "<span class='warning'>You reach for the supermatter sliver with your hands. That was dumb.</span>")
+	user.visible_message("<span class='danger'>[ded] reaches out and tries to pick up [src]. [ded.p_their()] body starts to glow and bursts into flames before flashing into dust!</span>",\
+			"<span class='userdanger'>You reach for [src] with your hands. That was dumb.</span>",\
+			"<span class='italics'>Everything suddenly goes silent.</span>")
 	radiation_pulse(user, 500, 2)
 	playsound(get_turf(user), 'sound/effects/supermatter.ogg', 50, 1)
 	ded.dust()
 
 /obj/item/nuke_core_container/supermatter
 	name = "supermatter bin"
-	desc = "A tiny receptacle that releases an inert hyper-noblium mix upon sealing, allowing a sliver of a supermatter crystal to be safely stored.."
+	desc = "A tiny receptacle that releases an inert hyper-noblium mix upon sealing, allowing a sliver of a supermatter crystal to be safely stored."
 	var/obj/item/nuke_core/supermatter_sliver/sliver
 
 /obj/item/nuke_core_container/supermatter/Destroy()
@@ -193,12 +199,17 @@
 
 /obj/item/scalpel/supermatter
 	name = "supermatter scalpel"
-	desc = "A scalpel with a tip of condensed hyper-noblium gas, searingly cold to the touch, that can safely shave a sliver off a supermatter crystal."
+	desc = "A scalpel with a fragile tip of condensed hyper-noblium gas, searingly cold to the touch, that can safely shave a sliver off a supermatter crystal."
 	icon = 'icons/obj/nuke_tools.dmi'
 	icon_state = "supermatter_scalpel"
 	toolspeed = 0.5
 	damtype = "fire"
 	usesound = 'sound/weapons/bladeslice.ogg'
+	var/usesLeft
+
+/obj/item/scalpel/supermatter/Initialize()
+	. = ..()
+	usesLeft = rand(2, 4)
 
 /obj/item/hemostat/supermatter
 	name = "supermatter extraction tongs"
@@ -220,17 +231,16 @@
 		icon_state = "supermatter_tongs"
 
 /obj/item/hemostat/supermatter/afterattack(atom/O, mob/user, proximity)
+	. = ..()
 	if(!sliver)
 		return
-	if(ismovableatom(O) && O != sliver)
-		Consume(O)
-		to_chat(usr, "<span class='notice'>\The [sliver] is dusted along with \the [O]!</span>")
-		QDEL_NULL(sliver)
+	if(proximity && ismovableatom(O) && O != sliver)
+		Consume(O, user)
 
-/obj/item/hemostat/supermatter/throw_impact(atom/hit_atom) // no instakill supermatter javelins
+/obj/item/hemostat/supermatter/throw_impact(atom/hit_atom, datum/thrownthing/throwingdatum) // no instakill supermatter javelins
 	if(sliver)
 		sliver.forceMove(loc)
-		to_chat(usr, "<span class='notice'>\The [sliver] falls out of \the [src] as you throw them.</span>")
+		visible_message("<span class='notice'>\The [sliver] falls out of \the [src] as it hits the ground.</span>")
 		sliver = null
 		update_icon()
 	..()
@@ -244,11 +254,12 @@
 	else
 		investigate_log("has consumed [AM].", "supermatter")
 		qdel(AM)
-	user.visible_message("<span class='danger'>As [user] touches \the [AM] with \a [src], silence fills the room...</span>",\
-			"<span class='userdanger'>You touch \the [AM] with \the [src], and everything suddenly goes silent.</span>\n<span class='notice'>\The [AM] flashes into dust, and soon as you can register this, you do as well.</span>",\
+	if (user)
+		user.visible_message("<span class='danger'>As [user] touches [AM] with \the [src], both flash into dust and silence fills the room...</span>",\
+			"<span class='userdanger'>You touch [AM] with [src], and everything suddenly goes silent.\n[AM] and [sliver] flash into dust, and soon as you can register this, you do as well.</span>",\
 			"<span class='italics'>Everything suddenly goes silent.</span>")
-	radiation_pulse(user, 500, 2)
+		user.dust()
+	radiation_pulse(src, 500, 2)
 	playsound(src, 'sound/effects/supermatter.ogg', 50, 1)
-	user.dust()
 	QDEL_NULL(sliver)
 	update_icon()

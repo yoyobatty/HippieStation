@@ -9,10 +9,8 @@
 	action_icon = 'hippiestation/icons/mob/actions.dmi'
 	action_icon_state = "hatch"
 
-
-
 /obj/effect/proc_holder/spell/self/shadowling_hatch/cast(list/targets,mob/user = usr)
-	if(user.stat || !ishuman(user) || !user || !is_shadow(user || isinspace(user)))
+	if(user.stat || !ishuman(user) || !user || !is_shadow(user) || isinspace(user))
 		return
 	var/mob/living/carbon/human/H = user
 	var/hatch_or_no = alert(H,"Are you sure you want to hatch? You cannot undo this!",,"Yes","No")
@@ -91,8 +89,8 @@
 			H.faction |= "faithless"
 			H.shadow_walk = TRUE
 
-			H.equip_to_slot_or_del(new /obj/item/clothing/suit/space/shadowling(H), slot_wear_suit)
-			H.equip_to_slot_or_del(new /obj/item/clothing/head/shadowling(H), slot_head)
+			H.equip_to_slot_or_del(new /obj/item/clothing/suit/space/shadowling(H), SLOT_WEAR_SUIT)
+			H.equip_to_slot_or_del(new /obj/item/clothing/head/shadowling(H), SLOT_HEAD)
 			H.set_species(/datum/species/shadow/ling) //can't be a shadowling without being a shadowling
 
 			H.mind.RemoveSpell(src)
@@ -161,7 +159,7 @@
 					to_chat(M, "<span class='userdanger'>An immense pressure slams you onto the ground!</span>")
 				to_chat(world, "<font size=5><span class='shadowling'><b>\"VYSHA NERADA YEKHEZET U'RUU!!\"</font></span>")
 				for(var/mob/M in GLOB.player_list)
-					M.playsound_local(get_turf(M), 'sound/hallucinations/veryfar_noise.ogg', 150, 1, pressure_affected = FALSE)
+					SEND_SOUND(M, sound('sound/hallucinations/veryfar_noise.ogg'))
 				for(var/obj/machinery/power/apc/A in GLOB.apcs_list)
 					A.overload_lighting()
 				var/mob/A = new /mob/living/simple_animal/ascendant_shadowling(H.loc)
@@ -173,17 +171,18 @@
 				H.mind.AddSpell(new /obj/effect/proc_holder/spell/self/shadowling_phase_shift(null))
 				H.mind.AddSpell(new /obj/effect/proc_holder/spell/aoe_turf/ascendant_storm(null))
 				H.mind.AddSpell(new /obj/effect/proc_holder/spell/self/shadowling_hivemind_ascendant(null))
+				H.mind.AddSpell(new /obj/effect/proc_holder/spell/targeted/sling/gore(null))
 				H.mind.transfer_to(A)
 				A.name = H.real_name
 				if(A.real_name)
 					A.real_name = H.real_name
 				H.invisibility = 60 //This is pretty bad, but is also necessary for the shuttle call to function properly
-				H.loc = A
+				H.forceMove(A)
 				if(!SSticker.mode.shadowling_ascended)
-					set_security_level(3)
+					set_security_level(SEC_LEVEL_DELTA)
 					SSshuttle.emergencyCallTime = 1800
 					SSshuttle.emergency.request(null, 0.3)
 					SSshuttle.emergencyNoRecall = TRUE
-				SSticker.mode.shadowling_ascended = 1
+				SSticker.mode.shadowling_ascended = TRUE
 				A.mind.RemoveSpell(src)
 				qdel(H)

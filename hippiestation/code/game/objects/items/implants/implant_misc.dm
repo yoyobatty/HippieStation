@@ -2,7 +2,6 @@
 	name = "Combat Stimulant Implant"
 	desc = "A cocktail of potent drugs will heal damage allowing you to fight for longer"
 	icon_state = "adrenal"
-	origin_tech = "materials=2;biotech=4;combat=3;syndicate=4"
 	uses = 3
 
 /obj/item/implant/comstimms/get_data()
@@ -28,10 +27,10 @@
 	imp_in.cure_blind()
 	imp_in.cure_nearsighted()
 
-	imp_in.reagents.add_reagent("synaptizine", 10)
-	imp_in.reagents.add_reagent("omnizine", 10)
-	imp_in.reagents.add_reagent("syndicate_nanites", 10)
-	imp_in.reagents.add_reagent("salbutamol", 10)//These two mean you could survive being spaced and come back healthy and ANRGY
-	imp_in.reagents.add_reagent("leporazine", 10)
+	imp_in.reagents.add_reagent(/datum/reagent/medicine/synaptizine, 10)
+	imp_in.reagents.add_reagent(/datum/reagent/medicine/omnizine, 10)
+	imp_in.reagents.add_reagent(/datum/reagent/medicine/syndicate_nanites, 10)
+	imp_in.reagents.add_reagent(/datum/reagent/medicine/salbutamol, 10)//These two mean you could survive being spaced and come back healthy and ANRGY
+	imp_in.reagents.add_reagent(/datum/reagent/medicine/leporazine, 10)
 	if(!uses)
 		qdel(src)

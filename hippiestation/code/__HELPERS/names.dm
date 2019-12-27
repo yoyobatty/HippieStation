@@ -1,5 +1,3 @@
-/proc/moth_name(gender)
-	if(gender == MALE)
-		return "[pick(GLOB.moth_names_male)]"
-	else
-		return "[pick(GLOB.moth_names_female)]"
+/proc/dwarf_name()
+	return "[pick(GLOB.dwarf_first)] [pick(GLOB.dwarf_last)]"
+// this code feels rancid but is taken straight from the tg file.

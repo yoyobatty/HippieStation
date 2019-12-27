@@ -31,7 +31,7 @@
 	else if(mind) // Let's make this a feature
 		egg.origin = mind
 	for(var/obj/item/organ/I in src)
-		I.loc = egg
+		I.forceMove(egg)
 	visible_message("<span class='warning'>[src] plants something in [victim]'s flesh!</span>", \
 					"<span class='danger'>We inject our egg into [victim]'s body!</span>")
 	egg_lain = 1
@@ -42,7 +42,7 @@
 		// Changeling egg can survive in aliens!
 		var/mob/living/carbon/C = target
 		if(C.stat == DEAD)
-			if(C.status_flags & XENO_HOST)
+			if(HAS_TRAIT(C, TRAIT_XENO_HOST))
 				to_chat(src, "<span class='userdanger'>A foreign presence repels us from this body. Perhaps we should try to infest another?</span>")
 				return
 			Infect(target)
@@ -52,7 +52,6 @@
 /obj/item/organ/body_egg/changeling_egg
 	name = "changeling egg"
 	desc = "Twitching and disgusting."
-	origin_tech = "biotech=7" // You need to be really lucky to obtain it.
 	var/datum/mind/origin
 	var/time
 
@@ -66,12 +65,11 @@
 
 /obj/item/organ/body_egg/changeling_egg/proc/Pop()
 	var/mob/living/carbon/monkey/M = new(owner)
-	owner.stomach_contents += M
 
 	for(var/obj/item/organ/I in src)
 		I.Insert(M, 1)
 
-	if(origin && origin.current && (origin.current.stat == DEAD))
+	if(origin && (origin.current ? (origin.current.stat == DEAD) : origin.get_ghost()))
 		origin.transfer_to(M)
 		var/datum/antagonist/changeling/C = origin.has_antag_datum(/datum/antagonist/changeling)
 		if(!C)
@@ -79,7 +77,9 @@
 		if(C.can_absorb_dna(owner))
 			C.add_new_profile(owner)
 
-		C.purchasedpowers += new /obj/effect/proc_holder/changeling/humanform(null)
+		var/datum/action/changeling/humanform/hf = new
+		C.purchasedpowers += hf
+		C.regain_powers()
 		M.key = origin.key
 	owner.gib()
 

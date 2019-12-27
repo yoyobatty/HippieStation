@@ -38,11 +38,11 @@
 	var/static/mutable_appearance/cap_dead
 
 /mob/living/simple_animal/hostile/mushroom/examine(mob/user)
-	..()
+	. = ..()
 	if(health >= maxHealth)
-		to_chat(user, "<span class='info'>It looks healthy.</span>")
+		. += "<span class='info'>It looks healthy.</span>"
 	else
-		to_chat(user, "<span class='info'>It looks like it's been roughed up.</span>")
+		. += "<span class='info'>It looks like it's been roughed up.</span>"
 
 /mob/living/simple_animal/hostile/mushroom/Life()
 	..()
@@ -63,7 +63,7 @@
 	. = ..()
 
 /mob/living/simple_animal/hostile/mushroom/CanAttack(atom/the_target) // Mushroom-specific version of CanAttack to handle stupid attack_same = 2 crap so we don't have to do it for literally every single simple_animal/hostile because this shit never gets spawned
-	if(!the_target || isturf(the_target) || istype(the_target, /atom/movable/lighting_object)) 
+	if(!the_target || isturf(the_target) || istype(the_target, /atom/movable/lighting_object))
 		return FALSE
 
 	if(see_invisible < the_target.invisibility)//Target's invisible to us, forget it
@@ -170,22 +170,22 @@
 	if(M.a_intent == INTENT_HARM)
 		Bruise()
 
-/mob/living/simple_animal/hostile/mushroom/hitby(atom/movable/AM)
+/mob/living/simple_animal/hostile/mushroom/hitby(atom/movable/AM, skipcatch, hitpush, blocked, datum/thrownthing/throwingdatum)
 	..()
 	if(istype(AM, /obj/item))
 		var/obj/item/T = AM
 		if(T.throwforce)
 			Bruise()
 
-/mob/living/simple_animal/hostile/mushroom/bullet_act()
-	..()
-	Bruise()
+/mob/living/simple_animal/hostile/mushroom/bullet_act(obj/item/projectile/P)
+	. = ..()
+	if(P.nodamage)
+		Bruise()
 
 /mob/living/simple_animal/hostile/mushroom/harvest()
 	var/counter
 	for(counter=0, counter<=powerlevel, counter++)
 		var/obj/item/reagent_containers/food/snacks/hugemushroomslice/S = new /obj/item/reagent_containers/food/snacks/hugemushroomslice(src.loc)
-		S.reagents.add_reagent("mushroomhallucinogen", powerlevel)
-		S.reagents.add_reagent("omnizine", powerlevel)
-		S.reagents.add_reagent("synaptizine", powerlevel)
-	qdel(src)
+		S.reagents.add_reagent(/datum/reagent/drug/mushroomhallucinogen, powerlevel)
+		S.reagents.add_reagent(/datum/reagent/medicine/omnizine, powerlevel)
+		S.reagents.add_reagent(/datum/reagent/medicine/synaptizine, powerlevel)

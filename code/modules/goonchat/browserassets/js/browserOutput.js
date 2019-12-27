@@ -6,7 +6,6 @@
 ******************************************/
 
 //DEBUG STUFF
-var triggerError = attachErrorHandler('chatDebug', true);
 var escaper = encodeURIComponent || escape;
 var decoder = decodeURIComponent || unescape;
 window.onerror = function(msg, url, line, col, error) {
@@ -22,7 +21,7 @@ window.onerror = function(msg, url, line, col, error) {
 
 //Globals
 window.status = 'Output';
-var $messages, $subOptions, $subAudio, $selectedSub, $contextMenu, $filterMessages;
+var $messages, $subOptions, $subAudio, $selectedSub, $contextMenu, $filterMessages, $last_message;
 var opts = {
 	//General
 	'messageCount': 0, //A count...of messages...
@@ -35,6 +34,7 @@ var opts = {
 	'wasd': false, //Is the user in wasd mode?
 	'priorChatHeight': 0, //Thing for height-resizing detection
 	'restarting': false, //Is the round restarting?
+	'darkmode':false, //Are we using darkmode? If not WHY ARE YOU LIVING IN 2009???
 
 	//Options menu
 	'selectedSubLoop': null, //Contains the interval loop for closing the selected sub menu
@@ -65,8 +65,12 @@ var opts = {
 	'volumeUpdateDelay': 5000, //Time from when the volume updates to data being sent to the server
 	'volumeUpdating': false, //True if volume update function set to fire
 	'updatedVolume': 0, //The volume level that is sent to the server
+	'musicStartAt': 0, //The position the music starts playing
+	'musicEndAt': 0, //The position the music... stops playing... if null, doesn't apply (so the music runs through)
 	
 	'defaultMusicVolume': 25,
+
+	'messageCombining': true,
 
 };
 
@@ -93,8 +97,53 @@ if (typeof String.prototype.trim !== 'function') {
 	};
 }
 
+// Linkify the contents of a node, within its parent.
+function linkify(parent, insertBefore, text) {
+	var start = 0;
+	var match;
+	var regex = /(?:(?:https?:\/\/)|(?:www\.))(?:[^ ]*?\.[^ ]*?)+[-A-Za-z0-9+&@#\/%?=~_|$!:,.;()]+/ig;
+	while ((match = regex.exec(text)) !== null) {
+		// add the unmatched text
+		parent.insertBefore(document.createTextNode(text.substring(start, match.index)), insertBefore);
+
+		var href = match[0];
+		if (!/^https?:\/\//i.test(match[0])) {
+			href = "http://" + match[0];
+		}
+
+		// add the link
+		var link = document.createElement("a");
+		link.href = href;
+		link.textContent = match[0];
+		parent.insertBefore(link, insertBefore);
+
+		start = regex.lastIndex;
+	}
+	if (start !== 0) {
+		// add the remaining text and remove the original text node
+		parent.insertBefore(document.createTextNode(text.substring(start)), insertBefore);
+		parent.removeChild(insertBefore);
+	}
+}
+
+// Recursively linkify the children of a given node.
+function linkify_node(node) {
+	var children = node.childNodes;
+	// work backwards to avoid the risk of looping forever on our own output
+	for (var i = children.length - 1; i >= 0; --i) {
+		var child = children[i];
+		if (child.nodeType == Node.TEXT_NODE) {
+			// text is to be linkified
+			linkify(node, child, child.textContent);
+		} else if (child.nodeName != "A" && child.nodeName != "a") {
+			// do not linkify existing links
+			linkify_node(child);
+		}
+	}
+}
+
 //Shit fucking piece of crap that doesn't work god fuckin damn it
-function linkify(text) {
+function linkify_fallback(text) {
 	var rex = /((?:<a|<iframe|<img)(?:.*?(?:src="|href=").*?))?(?:(?:https?:\/\/)|(?:www\.))+(?:[^ ]*?\.[^ ]*?)+[-A-Za-z0-9+&@#\/%?=~_|$!:,.;]+/ig;
 	return text.replace(rex, function ($0, $1) {
 		if(/^https?:\/\/.+/i.test($0)) {
@@ -111,7 +160,16 @@ function byondDecode(message) {
 	// The replace for + is because FOR SOME REASON, BYOND replaces spaces with a + instead of %20, and a plus with %2b.
 	// Marvelous.
 	message = message.replace(/\+/g, "%20");
-	message = decoder(message);
+	try { 
+		// This is a workaround for the above not always working when BYOND's shitty url encoding breaks. (byond bug id:2399401)
+		if (decodeURIComponent) {
+			message = decodeURIComponent(message);
+		} else {
+			throw new Error("Easiest way to trigger the fallback")
+		}
+	} catch (err) {
+		message = unescape(message);
+	}
 	return message;
 }
 
@@ -196,7 +254,7 @@ function output(message, flag) {
 	if (flag !== 'internal')
 		opts.lastPang = Date.now();
 
-	message = byondDecode(message)
+	message = byondDecode(message).trim();
 
 	//The behemoth of filter-code (for Admin message filters)
 	//Note: This is proooobably hella inefficient
@@ -281,11 +339,6 @@ function output(message, flag) {
 		}
 	}
 
-	//Url stuff
-	if (message.length && flag != 'preventLink') {
-		message = linkify(message);
-	}
-
 	opts.messageCount++;
 
 	//Pop the top message off if history limit reached
@@ -294,26 +347,73 @@ function output(message, flag) {
 		opts.messageCount--; //I guess the count should only ever equal the limit
 	}
 
-	//Actually append the message
+	// Create the element - if combining is off, we use it, and if it's on, we
+	// might discard it bug need to check its text content. Some messages vary
+	// only in HTML markup, have the same text content, and should combine.
 	var entry = document.createElement('div');
-	entry.className = 'entry';
+	entry.innerHTML = message;
+	var trimmed_message = entry.textContent || entry.innerText || "";
 
-	if (filteredOut) {
-		entry.className += ' hidden';
-		entry.setAttribute('data-filter', filteredOut);
+	var handled = false;
+	if (opts.messageCombining) {
+		var lastmessages = $messages.children('div.entry:last-child').last();
+		if (lastmessages.length && $last_message && $last_message == trimmed_message) {
+			var badge = lastmessages.children('.r').last();
+			if (badge.length) {
+				badge = badge.detach();
+				badge.text(parseInt(badge.text()) + 1);
+			} else {
+				badge = $('<span/>', {'class': 'r', 'text': 2});
+			}
+			lastmessages.html(message);
+			lastmessages.append(badge);
+			badge.animate({
+				"font-size": "0.9em"
+			}, 100, function() {
+				badge.animate({
+					"font-size": "0.7em"
+				}, 100);
+			});
+			opts.messageCount--;
+			handled = true;
+		}
 	}
 
-	entry.innerHTML = message.trim();
-	$messages[0].appendChild(entry);
-	$(entry).find("img.icon").error(iconError);
-	//Actually do the snap
+	if (!handled) {
+		//Actually append the message
+		entry.className = 'entry';
+
+		if (filteredOut) {
+			entry.className += ' hidden';
+			entry.setAttribute('data-filter', filteredOut);
+		}
+
+		$last_message = trimmed_message;
+		$messages[0].appendChild(entry);
+		$(entry).find("img.icon").error(iconError);
+
+		var to_linkify = $(entry).find(".linkify");
+		if (typeof Node === 'undefined') {
+			// Linkify fallback for old IE
+			for(var i = 0; i < to_linkify.length; ++i) {
+				to_linkify[i].innerHTML = linkify_fallback(to_linkify[i].innerHTML);
+			}
+		} else {
+			// Linkify for modern IE versions
+			for(var i = 0; i < to_linkify.length; ++i) {
+				linkify_node(to_linkify[i]);
+			}
+		}
+
+		//Actually do the snap
+		//Stuff we can do after the message shows can go here, in the interests of responsiveness
+		if (opts.highlightTerms && opts.highlightTerms.length > 0) {
+			highlightTerms(entry);
+		}
+	}
+
 	if (!filteredOut && atBottom) {
 		$('body,html').scrollTop($messages.outerHeight());
-	}
-
-	//Stuff we can do after the message shows can go here, in the interests of responsiveness
-	if (opts.highlightTerms && opts.highlightTerms.length > 0) {
-		highlightTerms(entry);
 	}
 }
 
@@ -332,7 +432,7 @@ function setCookie(cname, cvalue, exdays) {
 	var d = new Date();
 	d.setTime(d.getTime() + (exdays*24*60*60*1000));
 	var expires = 'expires='+d.toUTCString();
-	document.cookie = cname + '=' + cvalue + '; ' + expires;
+	document.cookie = cname + '=' + cvalue + '; ' + expires + "; path=/";
 }
 
 function getCookie(cname) {
@@ -354,6 +454,19 @@ function toHex(n) {
 	if (isNaN(n)) return "00";
 	n = Math.max(0,Math.min(n,255));
 	return "0123456789ABCDEF".charAt((n-n%16)/16) + "0123456789ABCDEF".charAt(n%16);
+}
+
+function swap() { //Swap to darkmode
+	if (opts.darkmode){
+		document.getElementById("sheetofstyles").href = "browserOutput_white.css";
+		opts.darkmode = false;
+		runByond('?_src_=chat&proc=swaptolightmode');
+	} else {
+		document.getElementById("sheetofstyles").href = "browserOutput.css";
+		opts.darkmode = true;
+		runByond('?_src_=chat&proc=swaptodarkmode');
+	}
+	setCookie('darkmode', (opts.darkmode ? 'true' : 'false'), 365);
 }
 
 function handleClientData(ckey, ip, compid) {
@@ -407,6 +520,8 @@ function ehjaxCallback(data) {
 	} else if (data == 'roundrestart') {
 		opts.restarting = true;
 		internalOutput('<div class="connectionClosed internal restarting">The connection has been closed because the server is restarting. Please wait while you automatically reconnect.</div>', 'internal');
+	} else if (data == 'stopMusic') {
+		$('#adminMusic').prop('src', '');
 	} else {
 		//Oh we're actually being sent data instead of an instruction
 		var dataJ;
@@ -431,18 +546,10 @@ function ehjaxCallback(data) {
 				handleClientData(data.clientData.ckey, data.clientData.ip, data.clientData.compid);
 			}
 			sendVolumeUpdate();
-		} else if (data.firebug) {
-			if (data.trigger) {
-				internalOutput('<span class="internal boldnshit">Loading firebug console, triggered by '+data.trigger+'...</span>', 'internal');
-			} else {
-				internalOutput('<span class="internal boldnshit">Loading firebug console...</span>', 'internal');
-			}
-			var firebugEl = document.createElement('script');
-			firebugEl.src = 'https://getfirebug.com/firebug-lite-debug.js';
-			document.body.appendChild(firebugEl);
 		} else if (data.adminMusic) {
 			if (typeof data.adminMusic === 'string') {
 				var adminMusic = byondDecode(data.adminMusic);
+				var bindLoadedData = false;
 				adminMusic = adminMusic.match(/https?:\/\/\S+/) || '';
 				if (data.musicRate) {
 					var newRate = Number(data.musicRate);
@@ -451,6 +558,19 @@ function ehjaxCallback(data) {
 					}
 				} else {
 					$('#adminMusic').prop('defaultPlaybackRate', 1.0);
+				}
+				if (data.musicSeek) {
+					opts.musicStartAt = Number(data.musicSeek) || 0;
+					bindLoadedData = true;
+				} else {
+					opts.musicStartAt = 0;
+				}
+				if (data.musicHalt) {
+					opts.musicEndAt = Number(data.musicHalt) || null;
+					bindLoadedData = true;
+				}
+				if (bindLoadedData) {
+					$('#adminMusic').one('loadeddata', adminMusicLoadedData);
 				}
 				$('#adminMusic').prop('src', adminMusic);
 				$('#adminMusic').trigger("play");
@@ -482,6 +602,27 @@ function sendVolumeUpdate() {
 	opts.volumeUpdating = false;
 	if(opts.updatedVolume) {
 		runByond('?_src_=chat&proc=setMusicVolume&param[volume]='+opts.updatedVolume);
+	}
+}
+
+function adminMusicEndCheck(event) {
+	if (opts.musicEndAt) {
+		if ($('#adminMusic').prop('currentTime') >= opts.musicEndAt) {
+			$('#adminMusic').off(event);
+			$('#adminMusic').trigger('pause');
+			$('#adminMusic').prop('src', '');
+		}
+	} else {
+		$('#adminMusic').off(event);
+	}
+}
+
+function adminMusicLoadedData(event) {
+	if (opts.musicStartAt && ($('#adminMusic').prop('duration') === Infinity || (opts.musicStartAt <= $('#adminMusic').prop('duration'))) ) {
+		$('#adminMusic').prop('currentTime', opts.musicStartAt);
+	}
+	if (opts.musicEndAt) {
+		$('#adminMusic').on('timeupdate', adminMusicEndCheck);
 	}
 }
 
@@ -564,15 +705,25 @@ $(function() {
 	******************************************/
 	var savedConfig = {
 		'sfontSize': getCookie('fontsize'),
+		'slineHeight': getCookie('lineheight'),
 		'spingDisabled': getCookie('pingdisabled'),
 		'shighlightTerms': getCookie('highlightterms'),
 		'shighlightColor': getCookie('highlightcolor'),
 		'smusicVolume': getCookie('musicVolume'),
+		'smessagecombining': getCookie('messagecombining'),
+		'sdarkmode': getCookie('darkmode'),
 	};
 
 	if (savedConfig.sfontSize) {
 		$messages.css('font-size', savedConfig.sfontSize);
 		internalOutput('<span class="internal boldnshit">Loaded font size setting of: '+savedConfig.sfontSize+'</span>', 'internal');
+	}
+	if (savedConfig.slineHeight) {
+		$("body").css('line-height', savedConfig.slineHeight);
+		internalOutput('<span class="internal boldnshit">Loaded line height setting of: '+savedConfig.slineHeight+'</span>', 'internal');
+	}
+	if(savedConfig.sdarkmode == 'true'){
+		swap();
 	}
 	if (savedConfig.spingDisabled) {
 		if (savedConfig.spingDisabled == 'true') {
@@ -606,10 +757,18 @@ $(function() {
 		opts.updatedVolume = newVolume;
 		sendVolumeUpdate();
 		internalOutput('<span class="internal boldnshit">Loaded music volume of: '+savedConfig.smusicVolume+'</span>', 'internal');
-	} else {
+	}
+	else{
 		$('#adminMusic').prop('volume', opts.defaultMusicVolume / 100);
 	}
-
+	
+	if (savedConfig.smessagecombining) {
+		if (savedConfig.smessagecombining == 'false') {
+			opts.messageCombining = false;
+		} else {
+			opts.messageCombining = true;
+		}
+	}
 	(function() {
 		var dataCookie = getCookie('connData');
 		if (dataCookie) {
@@ -776,7 +935,9 @@ $(function() {
 	$('#toggleOptions').click(function(e) {
 		handleToggleClick($subOptions, $(this));
 	});
-
+	$('#darkmodetoggle').click(function(e) {
+		swap();
+	});
 	$('#toggleAudio').click(function(e) {
 		handleToggleClick($subAudio, $(this));
 	});
@@ -805,6 +966,28 @@ $(function() {
 		internalOutput('<span class="internal boldnshit">Font size set to '+fontSize+'</span>', 'internal');
 	});
 
+	$('#decreaseLineHeight').click(function(e) {
+		var Heightline = parseFloat($("body").css('line-height'));
+		var Sizefont = parseFloat($("body").css('font-size'));
+		var lineheightvar = Heightline / Sizefont
+		lineheightvar -= 0.1;
+		lineheightvar = lineheightvar.toFixed(1)
+		$("body").css({'line-height': lineheightvar});
+		setCookie('lineheight', lineheightvar, 365);
+		internalOutput('<span class="internal boldnshit">Line height set to '+lineheightvar+'</span>', 'internal');
+	});
+
+	$('#increaseLineHeight').click(function(e) {
+		var Heightline = parseFloat($("body").css('line-height'));
+		var Sizefont = parseFloat($("body").css('font-size'));
+		var lineheightvar = Heightline / Sizefont
+		lineheightvar += 0.1;
+		lineheightvar = lineheightvar.toFixed(1)
+		$("body").css({'line-height': lineheightvar});
+		setCookie('lineheight', lineheightvar, 365);
+		internalOutput('<span class="internal boldnshit">Line height set to '+lineheightvar+'</span>', 'internal');
+	});
+
 	$('#togglePing').click(function(e) {
 		if (opts.pingDisabled) {
 			$('#ping').slideDown('fast');
@@ -817,23 +1000,26 @@ $(function() {
 	});
 
 	$('#saveLog').click(function(e) {
+		// Requires IE 10+ to issue download commands. Just opening a popup
+		// window will cause Ctrl+S to save a blank page, ignoring innerHTML.
+		if (!window.Blob) {
+			output('<span class="big red">This function is only supported on IE 10+. Upgrade if possible.</span>', 'internal');
+			return;
+		}
+
 		$.ajax({
 			type: 'GET',
-			url: 'browserOutput.css',
+			url: 'browserOutput_white.css',
 			success: function(styleData) {
-				var win;
+				var blob = new Blob(['<head><title>Chat Log</title><style>', styleData, '</style></head><body>', $messages.html(), '</body>']);
 
-				try {
-					win = window.open('', 'Chat Log', 'toolbar=no, location=no, directories=no, status=no, menubar=yes, scrollbars=yes, resizable=yes, width=780, height=600, top=' + (screen.height/2 - 635/2) + ', left=' + (screen.width/2 - 780/2));
-				} catch (e) {
-					return;
-				}
+				var fname = 'SS13 Chat Log';
+				var date = new Date(), month = date.getMonth(), day = date.getDay(), hours = date.getHours(), mins = date.getMinutes(), secs = date.getSeconds();
+				fname += ' ' + date.getFullYear() + '-' + (month < 10 ? '0' : '') + month + '-' + (day < 10 ? '0' : '') + day;
+				fname += ' ' + (hours < 10 ? '0' : '') + hours + (mins < 10 ? '0' : '') + mins + (secs < 10 ? '0' : '') + secs;
+				fname += '.html';
 
-				if (win) {
-					win.document.head.innerHTML = '<title>Chat Log</title>';
-					win.document.head.innerHTML += '<style>' + styleData + '</style>';
-					win.document.body.innerHTML = $messages.html();
-				}
+				window.navigator.msSaveBlob(blob, fname);
 			}
 		});
 	});
@@ -920,6 +1106,11 @@ $(function() {
 			setTimeout(sendVolumeUpdate, opts.volumeUpdateDelay);
 			opts.volumeUpdating = true;
 		}
+	});
+
+	$('#toggleCombine').click(function(e) {
+		opts.messageCombining = !opts.messageCombining;
+		setCookie('messagecombining', (opts.messageCombining ? 'true' : 'false'), 365);
 	});
 
 	$('img.icon').error(iconError);

@@ -4,7 +4,6 @@
 	icon_state = "cell_con"
 	critical = 1
 	malfunction_probability = 1
-	origin_tech = "powerstorage=1;engineering=1"
 	var/obj/item/stock_parts/cell/battery = null
 	device_type = MC_CELL
 
@@ -12,6 +11,11 @@
 	if(battery_type)
 		battery = new battery_type(src)
 	..()
+
+/obj/item/computer_hardware/battery/handle_atom_del(atom/A)
+	if(A == battery)
+		try_eject(0, null, TRUE)
+	. = ..()
 
 /obj/item/computer_hardware/battery/try_insert(obj/item/I, mob/living/user = null)
 	if(!holder)
@@ -42,7 +46,10 @@
 		to_chat(user, "<span class='warning'>There is no power cell connected to \the [src].</span>")
 		return FALSE
 	else
-		battery.forceMove(get_turf(src))
+		if(user)
+			user.put_in_hands(battery)
+		else
+			battery.forceMove(drop_location())
 		to_chat(user, "<span class='notice'>You detach \the [battery] from \the [src].</span>")
 		battery = null
 
@@ -51,7 +58,6 @@
 				holder.shutdown_computer()
 
 		return TRUE
-	return FALSE
 
 
 
@@ -64,7 +70,6 @@
 	desc = "A standard power cell, commonly seen in high-end portable microcomputers or low-end laptops."
 	icon = 'icons/obj/module.dmi'
 	icon_state = "cell_mini"
-	origin_tech = "powerstorage=2;engineering=1"
 	w_class = WEIGHT_CLASS_TINY
 	maxcharge = 750
 
@@ -73,7 +78,6 @@
 	name = "advanced battery"
 	desc = "An advanced power cell, often used in most laptops. It is too large to be fitted into smaller devices."
 	icon_state = "cell"
-	origin_tech = "powerstorage=2;engineering=2"
 	w_class = WEIGHT_CLASS_SMALL
 	maxcharge = 1500
 
@@ -81,7 +85,6 @@
 	name = "super battery"
 	desc = "An advanced power cell, often used in high-end laptops."
 	icon_state = "cell"
-	origin_tech = "powerstorage=3;engineering=3"
 	w_class = WEIGHT_CLASS_SMALL
 	maxcharge = 2000
 

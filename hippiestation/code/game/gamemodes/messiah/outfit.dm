@@ -3,7 +3,7 @@
 	uniform = /obj/item/clothing/under/rank/chef/spacejesus
 	suit = /obj/item/clothing/suit/hippie/jesus/spacejesus
 	shoes = /obj/item/clothing/shoes/sandal/spacejesus
-	ears = /obj/item/device/radio/headset
+	ears = /obj/item/radio/headset
 	head = /obj/item/clothing/head/hippie/halo/spacejesus
 	suit_store = /obj/item/storage/book/bible
 
@@ -43,11 +43,15 @@
 	name = "Halo"
 	icon_state = "halo"
 	desc = "The holiest of all headwear."
-	alternate_worn_layer = BELOW_MOB_LAYER
+	alternate_worn_layer = BODY_BEHIND_LAYER
+	dynamic_hair_suffix = ""
 
 /obj/item/clothing/head/hippie/halo/spacejesus
 	resistance_flags = LAVA_PROOF | FIRE_PROOF | ACID_PROOF
-	flags_1 = NODROP_1
+
+/obj/item/clothing/head/hippie/halo/spacejesus/Initialize()
+	. = ..()
+	ADD_TRAIT(src, TRAIT_NODROP, CLOTHING_TRAIT)
 
 /obj/item/clothing/suit/hippie/jesus
 	name = "Messiah Robes"
@@ -57,15 +61,24 @@
 
 /obj/item/clothing/suit/hippie/jesus/spacejesus
 	resistance_flags = LAVA_PROOF | FIRE_PROOF | ACID_PROOF
-	flags_1 = NODROP_1
+
+/obj/item/clothing/suit/hippie/jesus/spacejesus/Initialize()
+	. = ..()
+	ADD_TRAIT(src, TRAIT_NODROP, CLOTHING_TRAIT)
 
 /obj/item/clothing/under/rank/chef/spacejesus
 	name = "Sacred Jumpsuit"
 	desc = "It seems very holy."
 	resistance_flags = LAVA_PROOF | FIRE_PROOF | ACID_PROOF
-	flags_1 = NODROP_1
+
+/obj/item/clothing/under/rank/chef/spacejesus/Initialize()
+	. = ..()
+	ADD_TRAIT(src, TRAIT_NODROP, CLOTHING_TRAIT)
 
 /obj/item/clothing/shoes/sandal/spacejesus
 	name = "Holy Sandals"
 	resistance_flags = LAVA_PROOF | FIRE_PROOF | ACID_PROOF
-	flags_1 = NODROP_1
+
+/obj/item/clothing/shoes/sandal/spacejesus/Initialize()
+	. = ..()
+	ADD_TRAIT(src, TRAIT_NODROP, CLOTHING_TRAIT)

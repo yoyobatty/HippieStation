@@ -12,7 +12,6 @@
 	throw_range = 7
 	w_class = WEIGHT_CLASS_BULKY
 	materials = list(MAT_METAL = 500)
-	origin_tech = "combat=1;engineering=1"
 	attack_verb = list("robusted")
 	hitsound = 'sound/weapons/smash.ogg'
 	var/latches = "single_latch"
@@ -49,12 +48,12 @@
 	new /obj/item/extinguisher/mini(src)
 	switch(rand(1,3))
 		if(1)
-			new /obj/item/device/flashlight(src)
+			new /obj/item/flashlight(src)
 		if(2)
-			new /obj/item/device/flashlight/glowstick(src)
+			new /obj/item/flashlight/glowstick(src)
 		if(3)
-			new /obj/item/device/flashlight/flare(src)
-	new /obj/item/device/radio/off(src)
+			new /obj/item/flashlight/flare(src)
+	new /obj/item/radio/off(src)
 
 /obj/item/storage/toolbox/emergency/old
 	name = "rusty red toolbox"
@@ -71,13 +70,55 @@
 	new /obj/item/wrench(src)
 	new /obj/item/weldingtool(src)
 	new /obj/item/crowbar(src)
-	new /obj/item/device/analyzer(src)
+	new /obj/item/analyzer(src)
 	new /obj/item/wirecutters(src)
 
 /obj/item/storage/toolbox/mechanical/old
 	name = "rusty blue toolbox"
 	icon_state = "toolbox_blue_old"
 	has_latches = FALSE
+
+/obj/item/storage/toolbox/mechanical/old/heirloom
+	name = "toolbox" //this will be named "X family toolbox"
+	desc = "It's seen better days."
+	force = 5
+	w_class = WEIGHT_CLASS_NORMAL
+
+/obj/item/storage/toolbox/mechanical/old/heirloom/PopulateContents()
+	return
+
+/obj/item/storage/toolbox/mechanical/old/clean
+	name = "toolbox"
+	desc = "A old, blue toolbox, it looks robust."
+	icon_state = "oldtoolboxclean"
+	item_state = "toolbox_blue"
+	has_latches = FALSE
+	force = 19
+	throwforce = 22
+
+/obj/item/storage/toolbox/mechanical/old/clean/proc/calc_damage()
+	var/power = 0
+	for (var/obj/item/stack/telecrystal/TC in GetAllContents())
+		power += TC.amount
+	force = 19 + power
+	throwforce = 22 + power
+
+/obj/item/storage/toolbox/mechanical/old/clean/attack(mob/target, mob/living/user)
+	calc_damage()
+	..()
+
+/obj/item/storage/toolbox/mechanical/old/clean/throw_impact(atom/hit_atom, datum/thrownthing/throwingdatum)
+	calc_damage()
+	..()
+
+/obj/item/storage/toolbox/mechanical/old/clean/PopulateContents()
+	new /obj/item/screwdriver(src)
+	new /obj/item/wrench(src)
+	new /obj/item/weldingtool(src)
+	new /obj/item/crowbar(src)
+	new /obj/item/wirecutters(src)
+	new /obj/item/multitool(src)
+	new /obj/item/clothing/gloves/color/yellow(src)
 
 /obj/item/storage/toolbox/electrical
 	name = "electrical toolbox"
@@ -88,7 +129,7 @@
 	var/pickedcolor = pick("red","yellow","green","blue","pink","orange","cyan","white")
 	new /obj/item/screwdriver(src)
 	new /obj/item/wirecutters(src)
-	new /obj/item/device/t_scanner(src)
+	new /obj/item/t_scanner(src)
 	new /obj/item/crowbar(src)
 	new /obj/item/stack/cable_coil(src,30,pickedcolor)
 	new /obj/item/stack/cable_coil(src,30,pickedcolor)
@@ -101,10 +142,13 @@
 	name = "suspicious looking toolbox"
 	icon_state = "syndicate"
 	item_state = "toolbox_syndi"
-	origin_tech = "combat=2;syndicate=1;engineering=2"
-	silent = 1
 	force = 15
 	throwforce = 18
+
+/obj/item/storage/toolbox/syndicate/ComponentInitialize()
+	. = ..()
+	var/datum/component/storage/STR = GetComponent(/datum/component/storage)
+	STR.silent = TRUE
 
 /obj/item/storage/toolbox/syndicate/PopulateContents()
 	new /obj/item/screwdriver/nuke(src)
@@ -112,7 +156,7 @@
 	new /obj/item/weldingtool/largetank(src)
 	new /obj/item/crowbar/red(src)
 	new /obj/item/wirecutters(src, "red")
-	new /obj/item/device/multitool(src)
+	new /obj/item/multitool(src)
 	new /obj/item/clothing/gloves/combat(src)
 
 /obj/item/storage/toolbox/drone
@@ -128,7 +172,7 @@
 	new /obj/item/crowbar(src)
 	new /obj/item/stack/cable_coil(src,30,pickedcolor)
 	new /obj/item/wirecutters(src)
-	new /obj/item/device/multitool(src)
+	new /obj/item/multitool(src)
 
 /obj/item/storage/toolbox/brass
 	name = "brass box"
@@ -138,11 +182,15 @@
 	has_latches = FALSE
 	resistance_flags = FIRE_PROOF | ACID_PROOF
 	w_class = WEIGHT_CLASS_HUGE
-	max_w_class = WEIGHT_CLASS_NORMAL
-	max_combined_w_class = 28
-	storage_slots = 28
 	attack_verb = list("robusted", "crushed", "smashed")
 	var/fabricator_type = /obj/item/clockwork/replica_fabricator/scarab
+
+/obj/item/storage/toolbox/brass/ComponentInitialize()
+	. = ..()
+	var/datum/component/storage/STR = GetComponent(/datum/component/storage)
+	STR.max_w_class = WEIGHT_CLASS_NORMAL
+	STR.max_combined_w_class = 28
+	STR.max_items = 28
 
 /obj/item/storage/toolbox/brass/prefilled/PopulateContents()
 	new fabricator_type(src)
@@ -153,7 +201,7 @@
 	new /obj/item/weldingtool/experimental/brass(src)
 
 /obj/item/storage/toolbox/brass/prefilled/servant
-	slot_flags = SLOT_BELT
+	slot_flags = ITEM_SLOT_BELT
 	fabricator_type = null
 
 /obj/item/storage/toolbox/brass/prefilled/ratvar
@@ -173,18 +221,75 @@
 	desc = "A toolbox painted bright green. Why anyone would store art supplies in a toolbox is beyond you, but it has plenty of extra space."
 	icon_state = "green"
 	item_state = "artistic_toolbox"
-	max_combined_w_class = 20
-	storage_slots = 10
 	w_class = WEIGHT_CLASS_GIGANTIC //Holds more than a regular toolbox!
 
+/obj/item/storage/toolbox/artistic/ComponentInitialize()
+	. = ..()
+	var/datum/component/storage/STR = GetComponent(/datum/component/storage)
+	STR.max_combined_w_class = 20
+	STR.max_items = 10
+
 /obj/item/storage/toolbox/artistic/PopulateContents()
-	new/obj/item/storage/crayons(src)
-	new/obj/item/crowbar(src)
-	new/obj/item/stack/cable_coil/red(src)
-	new/obj/item/stack/cable_coil/yellow(src)
-	new/obj/item/stack/cable_coil/blue(src)
-	new/obj/item/stack/cable_coil/green(src)
-	new/obj/item/stack/cable_coil/pink(src)
-	new/obj/item/stack/cable_coil/orange(src)
-	new/obj/item/stack/cable_coil/cyan(src)
-	new/obj/item/stack/cable_coil/white(src)
+	new /obj/item/storage/crayons(src)
+	new /obj/item/crowbar(src)
+	new /obj/item/stack/pipe_cleaner_coil/red(src)
+	new /obj/item/stack/pipe_cleaner_coil/yellow(src)
+	new /obj/item/stack/pipe_cleaner_coil/blue(src)
+	new /obj/item/stack/pipe_cleaner_coil/green(src)
+	new /obj/item/stack/pipe_cleaner_coil/pink(src)
+	new /obj/item/stack/pipe_cleaner_coil/orange(src)
+	new /obj/item/stack/pipe_cleaner_coil/cyan(src)
+	new /obj/item/stack/pipe_cleaner_coil/white(src)
+
+/obj/item/storage/toolbox/ammo
+	name = "ammo box"
+	desc = "It contains a few clips."
+	icon_state = "ammobox"
+	item_state = "ammobox"
+
+/obj/item/storage/toolbox/ammo/PopulateContents()
+	new /obj/item/ammo_box/a762(src)
+	new /obj/item/ammo_box/a762(src)
+	new /obj/item/ammo_box/a762(src)
+	new /obj/item/ammo_box/a762(src)
+	new /obj/item/ammo_box/a762(src)
+	new /obj/item/ammo_box/a762(src)
+	new /obj/item/ammo_box/a762(src)
+
+//floorbot assembly
+/obj/item/storage/toolbox/attackby(obj/item/stack/tile/plasteel/T, mob/user, params)
+	var/list/allowed_toolbox = list(/obj/item/storage/toolbox/emergency,	//which toolboxes can be made into floorbots
+							/obj/item/storage/toolbox/electrical,
+							/obj/item/storage/toolbox/mechanical,
+							/obj/item/storage/toolbox/artistic,
+							/obj/item/storage/toolbox/syndicate)
+
+	if(!istype(T, /obj/item/stack/tile/plasteel))
+		..()
+		return
+	if(!is_type_in_list(src, allowed_toolbox) && (type != /obj/item/storage/toolbox))
+		return
+	if(contents.len >= 1)
+		to_chat(user, "<span class='warning'>They won't fit in, as there is already stuff inside!</span>")
+		return
+	if(T.use(10))
+		var/obj/item/bot_assembly/floorbot/B = new
+		B.toolbox = type
+		switch(B.toolbox)
+			if(/obj/item/storage/toolbox)
+				B.toolbox_color = "r"
+			if(/obj/item/storage/toolbox/emergency)
+				B.toolbox_color = "r"
+			if(/obj/item/storage/toolbox/electrical)
+				B.toolbox_color = "y"
+			if(/obj/item/storage/toolbox/artistic)
+				B.toolbox_color = "g"
+			if(/obj/item/storage/toolbox/syndicate)
+				B.toolbox_color = "s"
+		user.put_in_hands(B)
+		B.update_icon()
+		to_chat(user, "<span class='notice'>You add the tiles into the empty [name]. They protrude from the top.</span>")
+		qdel(src)
+	else
+		to_chat(user, "<span class='warning'>You need 10 floor tiles to start building a floorbot!</span>")
+		return

@@ -1,5 +1,4 @@
 /obj/item/organ/alien
-	origin_tech = "biotech=5"
 	icon_state = "xgibmid2"
 	var/list/alien_powers = list()
 
@@ -9,6 +8,10 @@
 		if(ispath(A))
 			alien_powers -= A
 			alien_powers += new A(src)
+
+/obj/item/organ/alien/Destroy()
+	QDEL_LIST(alien_powers)
+	return ..()
 
 /obj/item/organ/alien/Insert(mob/living/carbon/M, special = 0)
 	..()
@@ -23,16 +26,15 @@
 
 /obj/item/organ/alien/prepare_eat()
 	var/obj/S = ..()
-	S.reagents.add_reagent("sacid", 10)
+	S.reagents.add_reagent(/datum/reagent/toxin/acid, 10)
 	return S
 
 
 /obj/item/organ/alien/plasmavessel
 	name = "plasma vessel"
 	icon_state = "plasma"
-	origin_tech = "biotech=5;plasmatech=4"
 	w_class = WEIGHT_CLASS_NORMAL
-	zone = "chest"
+	zone = BODY_ZONE_CHEST
 	slot = "plasmavessel"
 	alien_powers = list(/obj/effect/proc_holder/alien/plant, /obj/effect/proc_holder/alien/transfer)
 
@@ -43,7 +45,7 @@
 
 /obj/item/organ/alien/plasmavessel/prepare_eat()
 	var/obj/S = ..()
-	S.reagents.add_reagent("plasma", storedPlasma/10)
+	S.reagents.add_reagent(/datum/reagent/toxin/plasma, storedPlasma/10)
 	return S
 
 /obj/item/organ/alien/plasmavessel/large
@@ -55,7 +57,6 @@
 	plasma_rate = 15
 
 /obj/item/organ/alien/plasmavessel/large/queen
-	origin_tech = "biotech=6;plasmatech=4"
 	plasma_rate = 20
 
 /obj/item/organ/alien/plasmavessel/small
@@ -107,19 +108,18 @@
 /obj/item/organ/alien/hivenode
 	name = "hive node"
 	icon_state = "hivenode"
-	zone = "head"
+	zone = BODY_ZONE_HEAD
 	slot = "hivenode"
-	origin_tech = "biotech=5;magnets=4;bluespace=3"
 	w_class = WEIGHT_CLASS_TINY
 	var/recent_queen_death = 0 //Indicates if the queen died recently, aliens are heavily weakened while this is active.
 	alien_powers = list(/obj/effect/proc_holder/alien/whisper)
 
 /obj/item/organ/alien/hivenode/Insert(mob/living/carbon/M, special = 0)
 	..()
-	M.faction |= "alien"
+	M.faction |= ROLE_ALIEN
 
 /obj/item/organ/alien/hivenode/Remove(mob/living/carbon/M, special = 0)
-	M.faction -= "alien"
+	M.faction -= ROLE_ALIEN
 	..()
 
 //When the alien queen dies, all aliens suffer a penalty as punishment for failing to protect her.
@@ -135,7 +135,7 @@
 	else if(ishuman(owner)) //Humans, being more fragile, are more overwhelmed by the mental backlash.
 		to_chat(owner, "<span class='danger'>You feel a splitting pain in your head, and are struck with a wave of nausea. You cannot hear the hivemind anymore!</span>")
 		owner.emote("scream")
-		owner.Knockdown(100)
+		owner.Paralyze(100)
 
 	owner.jitteriness += 30
 	owner.confused += 30
@@ -160,35 +160,31 @@
 /obj/item/organ/alien/resinspinner
 	name = "resin spinner"
 	icon_state = "stomach-x"
-	zone = "mouth"
+	zone = BODY_ZONE_PRECISE_MOUTH
 	slot = "resinspinner"
-	origin_tech = "biotech=5;materials=4"
 	alien_powers = list(/obj/effect/proc_holder/alien/resin)
 
 
 /obj/item/organ/alien/acid
 	name = "acid gland"
 	icon_state = "acid"
-	zone = "mouth"
+	zone = BODY_ZONE_PRECISE_MOUTH
 	slot = "acidgland"
-	origin_tech = "biotech=5;materials=2;combat=2"
 	alien_powers = list(/obj/effect/proc_holder/alien/acid)
 
 
 /obj/item/organ/alien/neurotoxin
 	name = "neurotoxin gland"
 	icon_state = "neurotox"
-	zone = "mouth"
+	zone = BODY_ZONE_PRECISE_MOUTH
 	slot = "neurotoxingland"
-	origin_tech = "biotech=5;combat=5"
 	alien_powers = list(/obj/effect/proc_holder/alien/neurotoxin)
 
 
 /obj/item/organ/alien/eggsac
 	name = "egg sac"
 	icon_state = "eggsac"
-	zone = "groin"
+	zone = BODY_ZONE_PRECISE_GROIN
 	slot = "eggsac"
 	w_class = WEIGHT_CLASS_BULKY
-	origin_tech = "biotech=6"
 	alien_powers = list(/obj/effect/proc_holder/alien/lay_egg)

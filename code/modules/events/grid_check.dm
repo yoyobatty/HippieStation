@@ -15,5 +15,9 @@
 /datum/round_event/grid_check/start()
 	for(var/P in GLOB.apcs_list)
 		var/obj/machinery/power/apc/C = P
-		if(C.cell && (C.z in GLOB.station_z_levels))
+		if(C.cell && is_station_level(C.z))
+			var/area/A = C.area
+			if(GLOB.typecache_powerfailure_safe_areas[A.type])
+				continue
+
 			C.energy_fail(rand(30,120))

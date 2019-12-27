@@ -1,120 +1,135 @@
+#define FRIGID 1
+#define COOL 2
+#define NORMAL 3
+#define WARM 4
+#define SCALDING 5
 
 //Originally stolen from paradise. Credits to tigercat2000.
 //Modified a lot by Kokojo and Tortellini Tony.
+//Modified even more and completely rebuilt ui by YoYoBatty.
 /obj/machinery/poolcontroller
-	name = "Pool Controller"
+	name = "\improper Pool Controller"
 	desc = "A controller for the nearby pool."
 	icon = 'hippiestation/icons/turf/pool.dmi'
 	icon_state = "poolc_3"
-	anchored = TRUE
 	density = TRUE
-	use_power = TRUE
+	use_power = IDLE_POWER_USE
 	idle_power_usage = 75
 	var/list/linkedturfs //List contains all of the linked pool turfs to this controller, assignment happens on initialize
-	var/temperature = 3 //1-5 Frigid Cool Normal Warm Scalding
+	var/temperature = NORMAL //1-5 Frigid Cool Normal Warm Scalding
 	var/srange = 6 //The range of the search for pool turfs, change this for bigger or smaller pools.
 	var/linkedmist = list() //Used to keep track of created mist
 	var/misted = FALSE //Used to check for mist.
 	var/obj/item/reagent_containers/beaker = null
-	var/cur_reagent = "water"
+	var/cur_reagent = "Water"
 	var/drainable = FALSE
 	var/drained = FALSE
-	var/bloody = 0
+	var/bloody = FALSE
 	var/obj/machinery/drain/linkeddrain = null
 	var/timer = 0 //we need a cooldown on that shit.
 	var/reagenttimer = 0 //We need 2.
 	var/shocked = FALSE//Shocks morons, like an airlock.
 	var/tempunlocked = FALSE
-	var/canplus = TRUE
-	var/canminus = TRUE
+	var/old_rcolor
 	resistance_flags = INDESTRUCTIBLE|UNACIDABLE
 
 /obj/machinery/poolcontroller/Initialize()
 	. = ..()
+	STOP_PROCESSING(SSmachines, src)
+	START_PROCESSING(SSprocessing, src)
 	wires = new /datum/wires/poolcontroller(src)
 	for(var/turf/open/pool/W in range(srange,src)) //Search for /turf/open/beach/water in the range of var/srange
 		LAZYADD(linkedturfs, W)
 	for(var/obj/machinery/drain/pooldrain in range(srange,src))
-		src.linkeddrain = pooldrain
+		linkeddrain = pooldrain
 
-/obj/machinery/poolcontroller/emag_act(user as mob) //Emag_act, this is called when it is hit with a cryptographic sequencer.
-	if(!emagged) //If it is not already emagged, emag it.
+/obj/machinery/poolcontroller/Destroy()
+	if(beaker)
+		beaker.forceMove(get_turf(src))
+		beaker = null
+	linkeddrain = null
+	linkedturfs.Cut()
+	return ..()
+
+/obj/machinery/poolcontroller/emag_act(mob/user) //Emag_act, this is called when it is hit with a cryptographic sequencer.
+	if(!(obj_flags & EMAGGED)) //If it is not already emagged, emag it.
 		to_chat(user, "<span class='warning'>You disable the [src]'s safety features.</span>")
 		do_sparks(5, TRUE, src)
-		emagged = TRUE
+		obj_flags |= EMAGGED
 		tempunlocked = TRUE
 		drainable = TRUE
-		do_sparks(1, 1)
 		if(GLOB.adminlog)
-			log_say("[key_name(user)] emagged the poolcontroller")
-			message_admins("[key_name_admin(user)] emagged the poolcontroller")
+			log_game("[key_name(user)] emagged [src]")
+			message_admins("[key_name_admin(user)] emagged [src]")
+	else
+		to_chat(user, "<span class='warning'>The interface on [src] has been damaged.</span>")
+		return
 
 /obj/machinery/poolcontroller/attackby(obj/item/W, mob/user)
 	if(shocked && !(stat & NOPOWER))
 		shock(user,50)
-
-	if(stat & (NOPOWER|BROKEN))
+	if(stat & (BROKEN))
 		return
 
 	if(istype(W,/obj/item/reagent_containers/glass/beaker))
 		if(beaker)
 			to_chat(user, "A beaker is already loaded into the machine.")
 			return
-
-		if(W.reagents.total_volume >= 100 && W.reagents.reagent_list.len == 1) //check if full and allow one reageant only.
-
+		if(W.reagents.total_volume >= 100 && W.reagents.reagent_list.len ==1) //check if full and allow one reageant only.
 			for(var/X in W.reagents.reagent_list)
 				var/datum/reagent/R = X
 				if(R.reagent_state == SOLID)
 					to_chat(user, "The pool cannot accept reagents in solid form!.")
 					return
-
 				else
 					beaker =  W
 					user.dropItemToGround(W)
-					W.loc = src
+					W.forceMove(src)
 					to_chat(user, "You add the beaker to the machine!")
 					updateUsrDialog()
 					cur_reagent = "[R.name]"
-
 					for(var/I in linkedturfs)
 						var/turf/open/pool/P = I
 						if(P.reagents)
 							P.reagents.clear_reagents()
-							P.reagents.add_reagent(R.id, 100)
-
+							P.reagents.add_reagent(R.type, 100)
 					if(GLOB.adminlog)
-						log_say("[key_name(user)] has changed the pool's chems to [R.name]")
-						message_admins("[key_name_admin(user)] has changed the pool's chems to [R.name].")
+						log_game("[key_name(user)] has changed the [src] chems to [R.name]")
+						message_admins("[key_name_admin(user)] has changed the [src] chems to [R.name].")
 					timer = 15
 		else
 			to_chat(user, "<span class='notice'>This machine only accepts full large beakers of one reagent.</span>")
-		return
-
-	if (istype(W,/obj/item/screwdriver))
-		cut_overlays()
-		panel_open = !panel_open
-		to_chat(user, "You [panel_open ? "open" : "close"] the maintenance panel.")
-		if(panel_open)
-			add_overlay("wires")
-		return
+			return
+	else if(panel_open && is_wire_tool(W))
+		wires.interact(user)
 	else
-		return attack_hand(user)
+		return ..()
 
+/obj/machinery/poolcontroller/screwdriver_act(mob/living/user, obj/item/W)
+	. = ..()
+	if(.)
+		return TRUE
+	cut_overlays()
+	panel_open = !panel_open
+	to_chat(user, "You [panel_open ? "open" : "close"] the maintenance panel.")
+	W.play_tool_sound(src)
+	if(panel_open)
+		add_overlay("wires")
+	return TRUE
 
 //procs
 /obj/machinery/poolcontroller/proc/shock(mob/user, prb)
 	if(stat & (BROKEN|NOPOWER))		// unpowered, no shock
-		return 0
+		return FALSE
 	if(!prob(prb))
-		return 0
+		return FALSE
 	var/datum/effect_system/spark_spread/s = new /datum/effect_system/spark_spread
 	s.set_up(5, 1, src)
 	s.start()
 	if(electrocute_mob(user, get_area(src), src, 0.7))
-		return 1
+		return TRUE
 	else
-		return 0
+		return FALSE
 
 /obj/machinery/poolcontroller/proc/poolreagent()
 	for(var/X in linkedturfs)
@@ -128,7 +143,7 @@
 				W.reagents.reaction(swimee, VAPOR, 0.03) //3 percent
 				for(var/Q in W.reagents.reagent_list)
 					var/datum/reagent/R = Q
-					swimee.reagents.add_reagent(R.id, 0.5) //osmosis
+					swimee.reagents.add_reagent(R.type, 0.5) //osmosis
 		for(var/obj/objects in W)
 			if(beaker && cur_reagent && W.reagents)
 				W.reagents.reaction(objects, VAPOR, 1)
@@ -145,7 +160,7 @@
 		reagenttimer--
 	if(stat & (NOPOWER|BROKEN))
 		return
-	else if(reagenttimer == 0 && !drained)
+	if(!reagenttimer && !drained)
 		poolreagent()
 
 /obj/machinery/poolcontroller/proc/updatePool()
@@ -154,21 +169,20 @@
 			var/turf/open/pool/W = X
 			for(var/mob/living/M in W) //Check for mobs in the linked pool-turfs.
 				switch(temperature) //Apply different effects based on what the temperature is set to.
-					if(5) //Scalding
-						M.bodytemperature = min(500, M.bodytemperature + 50) //heat mob at 35k(elvin) per cycle
-
-					if(1) //Freezing
-						M.bodytemperature = max(0, M.bodytemperature - 60) //cool mob at -35k per cycle, less would not affect the mob enough.
+					if(SCALDING) //Scalding
+						M.adjust_bodytemperature(TEMPERATURE_DAMAGE_COEFFICIENT*50,0,500)
+					if(WARM) //Warm
+						M.adjust_bodytemperature(TEMPERATURE_DAMAGE_COEFFICIENT*20,0,360) //Heats up mobs till the termometer shows up
+					if(NORMAL) //Normal temp does nothing, because it's just room temperature water.
+						if(iscarbon(M))
+							var/mob/living/carbon/C = M
+							C.adjust_bodytemperature(C.natural_bodytemperature_stabilization())
+					if(COOL)
+						M.adjust_bodytemperature(TEMPERATURE_DAMAGE_COEFFICIENT*-20,250) //Cools mobs till the termometer shows up
+					if(FRIGID) //Freezing
+						M.adjust_bodytemperature(TEMPERATURE_DAMAGE_COEFFICIENT*-60) //cool mob at -35k per cycle, less would not affect the mob enough.
 						if(M.bodytemperature <= 50 && !M.stat)
 							M.apply_status_effect(/datum/status_effect/freon)
-
-					if(3) //Normal temp does nothing, because it's just room temperature water.
-
-					if(4) //Warm
-						M.bodytemperature = min(360, M.bodytemperature + 20) //Heats up mobs till the termometer shows up
-
-					else //Cool
-						M.bodytemperature = max(250, M.bodytemperature - 20) //Cools mobs till the termometer shows up
 				var/mob/living/carbon/human/drownee = M
 				if(drownee.stat == DEAD)
 					continue
@@ -191,25 +205,29 @@
 	changecolor()
 
 /obj/machinery/poolcontroller/proc/changecolor()
+	if(drained)
+		return
 	var/rcolor
-	if(beaker && LAZYLEN(beaker.reagents.reagent_list))
+	if(beaker && beaker.reagents && beaker.reagents.reagent_list.len)
 		rcolor = mix_color_from_reagents(beaker.reagents.reagent_list)
+	if(rcolor == old_rcolor)
+		return // small performance upgrade hopefully?
+	old_rcolor = rcolor
 	for(var/X in linkedturfs)
 		var/turf/open/pool/color1 = X
 		if(bloody)
 			if(rcolor)
-				color1.color = BlendRGB(rgb(150, 20, 20), rcolor, 0.5)
 				color1.watereffect.color = BlendRGB(rgb(150, 20, 20), rcolor, 0.5)
+				color1.watertop.color = color1.watereffect.color
 			else
-				color1.color = rgb(150, 20, 20)
 				color1.watereffect.color = rgb(150, 20, 20)
+				color1.watertop.color = color1.watereffect.color
 		else if(!bloody && rcolor)
-			color1.color = rcolor
 			color1.watereffect.color = rcolor
-
-		if(!bloody && (!beaker || !LAZYLEN(beaker.reagents.reagent_list)))
-			color1.color = null
+			color1.watertop.color = color1.watereffect.color
+		else
 			color1.watereffect.color = null
+			color1.watertop.color = null
 
 /obj/machinery/poolcontroller/proc/miston() //Spawn /obj/effect/mist (from the shower) on all linked pool tiles
 	for(var/X in linkedturfs)
@@ -229,113 +247,90 @@
 /obj/machinery/poolcontroller/proc/handle_temp()
 	timer = 10
 	mistoff()
-	switch(temperature)
-		if(1)
-			canminus = FALSE
-			canplus = TRUE
-		if(2)
-			if(tempunlocked)
-				canminus = TRUE
-				canplus = TRUE
-			else
-				canminus = FALSE
-				canplus = TRUE
-		if(3)
-			canminus = TRUE
-			canplus = TRUE
-		if(4)
-			if(tempunlocked)
-				canminus = TRUE
-				canplus = TRUE
-			else
-				canminus = TRUE
-				canplus = FALSE
-		if(5)
-			miston()
-			canminus = TRUE
-			canplus = FALSE
 	icon_state = "poolc_[temperature]"
+	if(temperature == SCALDING)
+		miston()
 	update_icon()
 
-/obj/machinery/poolcontroller/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = 0, \
-															datum/tgui/master_ui = null, datum/ui_state/state = GLOB.physical_state)
+/obj/machinery/poolcontroller/proc/CanUpTemp(mob/user)
+	if(temperature == WARM && (tempunlocked || issilicon(user) || IsAdminGhost(user)) || temperature < WARM)
+		return TRUE
+	return FALSE
+
+/obj/machinery/poolcontroller/proc/CanDownTemp(mob/user)
+	if(temperature == COOL && (tempunlocked || issilicon(user) || IsAdminGhost(user)) || temperature > COOL)
+		return TRUE
+	return FALSE
+
+/obj/machinery/poolcontroller/proc/removeBeaker()
+	var/obj/item/reagent_containers/glass/B = beaker
+	if(QDELETED(B))
+		return
+	B.forceMove(loc)
+	beaker = null
+	cur_reagent = initial(cur_reagent)
+	changecolor()
+
+/obj/machinery/poolcontroller/proc/ToggleDrain(mob/user)
+	if(isDrainable(user) && !linkeddrain.active)
+		handle_temp()
+		timer = 15
+		linkeddrain.active = TRUE
+		linkeddrain.timer = 15
+		if(!linkeddrain.status)
+			new /obj/effect/whirlpool(linkeddrain.loc)
+			temperature = NORMAL
+		else
+			new /obj/effect/effect/waterspout(linkeddrain.loc)
+			temperature = NORMAL
+		bloody = FALSE
+
+/obj/machinery/poolcontroller/proc/isDrainable(mob/user)
+	return (drainable || issilicon(user) || IsAdminGhost(user))
+
+/obj/machinery/poolcontroller/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, \
+												datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
 	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
 	if(!ui)
-		ui = new(user, src, ui_key, "poolcontrol", name, 420, 405, master_ui, state)
+		ui = new(user, src, ui_key, "pool_controller", "[name]", 300, 450, master_ui, state)
+		ui.set_autoupdate(TRUE)
 		ui.open()
 
-/obj/machinery/poolcontroller/ui_data()
-	var/list/data = list()
-	data["candrain"] = drainable
-	data["draining"] = drained
-	data["temperature"] = temperature
-	data["tempunlocked"] = tempunlocked
-	data["linkeddrain"] = linkeddrain
-	data["canminus"] = canminus
-	data["canplus"] = canplus
-	data["chemical"] = cur_reagent
-	data["beaker"] = beaker
-	data["timer"] = timer
+/obj/machinery/poolcontroller/ui_data(mob/user)
+	. = list()
+	.["timer"] = timer
+	.["temperature"] = temperature
+	.["drainable"] = isDrainable(user)
+	.["poolstatus"] = drained
+	.["reagent"] = cur_reagent
+	.["hasBeaker"] = beaker
 
-	return data
 
 /obj/machinery/poolcontroller/ui_act(action, params)
 	if(..())
 		return
-	if(timer > 0)
+	if(timer)
 		return
 	switch(action)
-		if("increase")
-			if(canplus)
-				temperature += 1
-				. = TRUE
-			handle_temp()
-		if("decrease")
-			if(canminus)
-				temperature -= 1
-				. = TRUE
-			handle_temp()
-		if("eject")
-			if(beaker)
-				var/obj/item/reagent_containers/glass/B = beaker
-				B.loc = loc
-				beaker = null
-				. = TRUE
-			changecolor()
-		if("drain")
-			if(drainable)
-				mistoff()
-				timer = 60
-				linkeddrain.active = 1
-				linkeddrain.timer = 15
-				if(linkeddrain.status == 0)
-					new /obj/effect/whirlpool(linkeddrain.loc)
-					temperature = 3
-				if(linkeddrain.status == 1)
-					new /obj/effect/effect/waterspout(linkeddrain.loc)
-					temperature = 3
+		if("toggle_drain")
+			ToggleDrain(usr)
+			. = TRUE
+
+		if("remove_beaker")
+			removeBeaker()
+			. = TRUE
+
+		if("lower_temp")
+			if(CanDownTemp(usr))
+				temperature--
 				handle_temp()
-				bloody = FALSE
 				. = TRUE
 
-/obj/machinery/poolcontroller/attack_hand(mob/user)
-	if(shocked && !(stat & NOPOWER))
-		shock(user,50)
-	if(stat & (NOPOWER|BROKEN))
-		return
-	user.set_machine(src)
-	if(panel_open)
-		wires.interact(user)
-	..()
-
-/obj/machinery/poolcontroller/attack_paw(mob/user)
-	return attack_hand(user)
-
-/obj/machinery/poolcontroller/attack_alien(mob/user)
-	return attack_hand(user)
-
-/obj/machinery/poolcontroller/attack_hulk(mob/user)
-	return attack_hand(user)
+		if("raise_temp")
+			if(CanUpTemp(usr))
+				temperature++
+				handle_temp()
+				. = TRUE
 
 /obj/machinery/poolcontroller/proc/reset(wire)
 	switch(wire)

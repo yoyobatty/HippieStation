@@ -16,7 +16,7 @@
 	throw_range = 1
 	throw_speed = 1
 	pressure_resistance = 0
-	slot_flags = SLOT_HEAD
+	slot_flags = ITEM_SLOT_HEAD
 	body_parts_covered = HEAD
 	resistance_flags = FLAMMABLE
 	max_integrity = 50
@@ -63,16 +63,10 @@
 
 
 /obj/item/paper/examine(mob/user)
-	..()
-	to_chat(user, "<span class='notice'>Alt-click to fold it.</span>")
-
-	var/datum/asset/assets = get_asset_datum(/datum/asset/simple/paper)
+	. = ..()
+	var/datum/asset/assets = get_asset_datum(/datum/asset/spritesheet/simple/paper)
 	assets.send(user)
 
-	if(istype(src, /obj/item/paper/talisman)) //Talismans cannot be read
-		if(!iscultist(user) && !user.stat)
-			to_chat(user, "<span class='danger'>There are indecipherable images scrawled on the paper in what looks to be... <i>blood?</i></span>")
-			return
 	if(in_range(user, src) || isobserver(user))
 		if(user.is_literate())
 			user << browse("<HTML><HEAD><TITLE>[name]</TITLE></HEAD><BODY>[info]<HR>[stamps]</BODY></HTML>", "window=[name]")
@@ -81,7 +75,7 @@
 			user << browse("<HTML><HEAD><TITLE>[name]</TITLE></HEAD><BODY>[stars(info)]<HR>[stamps]</BODY></HTML>", "window=[name]")
 			onclose(user, "[name]")
 	else
-		to_chat(user, "<span class='warning'>You're too far away to read it!</span>")
+		. += "<span class='warning'>You're too far away to read it!</span>"
 
 
 /obj/item/paper/verb/rename()
@@ -93,7 +87,7 @@
 		return
 	if(ishuman(usr))
 		var/mob/living/carbon/human/H = usr
-		if(H.disabilities & CLUMSY && prob(25))
+		if(HAS_TRAIT(H, TRAIT_CLUMSY) && prob(25))
 			to_chat(H, "<span class='warning'>You cut yourself on the paper! Ahhhh! Ahhhhh!</span>")
 			H.damageoverlaytemp = 9001
 			H.update_damage_hud()
@@ -138,7 +132,7 @@
 	var/locid = 0
 	var/laststart = 1
 	var/textindex = 1
-	while(1)	//I know this can cause infinite loops and fuck up the whole server, but the if(istart==0) should be safe as fuck
+	while(locid < 15)	//hey whoever decided a while(1) was a good idea here, i hate you
 		var/istart = 0
 		if(links)
 			istart = findtext(info_links, "<span class=\"paper_field\">", laststart)
@@ -202,7 +196,7 @@
 
 	// Count the fields
 	var/laststart = 1
-	while(1)
+	while(fields < 15)
 		var/i = findtext(t, "<span class=\"paper_field\">", laststart)
 		if(i == 0)
 			break
@@ -214,7 +208,7 @@
 /obj/item/paper/proc/reload_fields() // Useful if you made the paper programicly and want to include fields. Also runs updateinfolinks() for you.
 	fields = 0
 	var/laststart = 1
-	while(1)
+	while(fields < 15)
 		var/i = findtext(info, "<span class=\"paper_field\">", laststart)
 		if(i == 0)
 			break
@@ -248,7 +242,8 @@
 
 /obj/item/paper/Topic(href, href_list)
 	..()
-	if(usr.stat || usr.restrained())
+	var/literate = usr.is_literate()
+	if(!usr.canUseTopic(src, BE_CLOSE, literate))
 		return
 
 	if(href_list["help"])
@@ -257,7 +252,7 @@
 	if(href_list["write"])
 		var/id = href_list["write"]
 		var/t =  stripped_multiline_input("Enter what you want to write:", "Write", no_trim=TRUE)
-		if(!t)
+		if(!t || !usr.canUseTopic(src, BE_CLOSE, literate))
 			return
 		var/obj/item/i = usr.get_active_held_item()	//Check to see if he still got that darn pen, also check if he's using a crayon or pen.
 		var/iscrayon = 0
@@ -269,6 +264,7 @@
 		if(!in_range(src, usr) && loc != usr && !istype(loc, /obj/item/clipboard) && loc.loc != usr && usr.get_active_held_item() != i)	//Some check to see if he's allowed to write
 			return
 
+		log_paper("[key_name(usr)] writing to paper [t]")
 		t = parsepencode(t, i, usr, iscrayon) // Encode everything from pencode to html
 
 		if(t != null)	//No input from the user means nothing needs to be added
@@ -297,16 +293,16 @@
 		else
 			to_chat(user, "<span class='notice'>You don't know how to read or write.</span>")
 			return
-		if(istype(src, /obj/item/paper/talisman/))
-			to_chat(user, "<span class='warning'>[P]'s ink fades away shortly after it is written.</span>")
-			return
 
 	else if(istype(P, /obj/item/stamp))
 
 		if(!in_range(src, user))
 			return
 
-		stamps += "<img src=large_[P.icon_state].png>"
+		var/datum/asset/spritesheet/sheet = get_asset_datum(/datum/asset/spritesheet/simple/paper)
+		if (isnull(stamps))
+			stamps = sheet.css_tag()
+		stamps += sheet.icon_tag(P.icon_state)
 		var/mutable_appearance/stampoverlay = mutable_appearance('icons/obj/bureaucracy.dmi', "paper_[P.icon_state]")
 		stampoverlay.pixel_x = rand(-2, 2)
 		stampoverlay.pixel_y = rand(-3, 2)
@@ -317,8 +313,8 @@
 		to_chat(user, "<span class='notice'>You stamp the paper with your rubber stamp.</span>")
 
 	if(P.is_hot())
-		if(user.disabilities & CLUMSY && prob(10))
-			user.visible_message("<span class='warning'>[user] accidentally ignites themselves!</span>", \
+		if(HAS_TRAIT(user, TRAIT_CLUMSY) && prob(10))
+			user.visible_message("<span class='warning'>[user] accidentally ignites [user.p_them()]self!</span>", \
 								"<span class='userdanger'>You miss the paper and accidentally light yourself on fire!</span>")
 			user.dropItemToGround(P)
 			user.adjust_fire_stacks(1)

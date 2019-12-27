@@ -1,6 +1,6 @@
 /client/proc/spawn_floor_cluwne()
 	set category = "Fun"
-	set name = "Unleash Floor Cluwne"
+	set name = "Unleash floor Cluwne"
 	set desc = "Pick a specific target or just let it select randomly and spawn the floor cluwne mob on the station. Be warned: spawning more than one may cause issues!"
 	var/target
 
@@ -17,4 +17,4 @@
 		new /mob/living/simple_animal/hostile/floor_cluwne(T)
 	log_admin("[key_name(usr)] spawned floor cluwne.")
 	message_admins("[key_name(usr)] spawned floor cluwne.")
-	SSblackbox.add_details("admin_verb","SFC")
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "SFC")

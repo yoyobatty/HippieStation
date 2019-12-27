@@ -147,7 +147,7 @@
 	icon_state = "folded_door"
 	structuretype = /obj/structure/inflatable/door
 
-/obj/structure/inflatable/door //Based on mineral door code
+/obj/structure/inflatable/door //based on mineral door code
 	name = "inflatable door"
 	density = 1
 	anchored = 1
@@ -262,15 +262,19 @@
 	desc = "Contains inflatable walls and doors."
 	icon_state = "inf"
 	item_state = "syringe_kit"
-	max_combined_w_class = 21
 	w_class = 3
 
+/obj/item/storage/inflatable/ComponentInitialize()
+	.=..()
+	var/datum/component/storage/STR = GetComponent(/datum/component/storage)
+	STR.max_combined_w_class = 21
+
 /obj/item/storage/inflatable/Initialize()
-	..()
 	for(var/i = 0, i < 8, i++)
 		new /obj/item/inflatable/door(src)
 	for(var/i = 0, i < 16, i ++)
 		new /obj/item/inflatable(src)
+	.=..()
 
 /obj/item/inflatable/suicide_act(mob/living/user)
 	visible_message(user, "<span class='danger'>[user] starts shoving the [src] up his ass! It looks like hes going to pull the cord, oh shit!</span>")

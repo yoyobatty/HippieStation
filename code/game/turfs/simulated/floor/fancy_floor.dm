@@ -12,17 +12,20 @@
 	icon_state = "wood"
 	floor_tile = /obj/item/stack/tile/wood
 	broken_states = list("wood-broken", "wood-broken2", "wood-broken3", "wood-broken4", "wood-broken5", "wood-broken6", "wood-broken7")
+	footstep = FOOTSTEP_WOOD
+	barefootstep = FOOTSTEP_WOOD_BAREFOOT
+	clawfootstep = FOOTSTEP_WOOD_CLAW
+	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
+	tiled_dirt = FALSE
 
 /turf/open/floor/wood/examine(mob/user)
-	..()
-	to_chat(user, "<span class='notice'>There's a few <b>screws</b> and a <b>small crack</b> visible.</span>")
+	. = ..()
+	. += "<span class='notice'>There's a few <b>screws</b> and a <b>small crack</b> visible.</span>"
 
-/turf/open/floor/wood/attackby(obj/item/C, mob/user, params)
+/turf/open/floor/wood/screwdriver_act(mob/living/user, obj/item/I)
 	if(..())
-		return
-	if(istype(C, /obj/item/screwdriver))
-		pry_tile(C, user)
-		return
+		return TRUE
+	return pry_tile(I, user) ? TRUE : FALSE
 
 /turf/open/floor/wood/try_replace_tile(obj/item/stack/tile/T, mob/user, params)
 	if(T.turf_type == type)
@@ -38,9 +41,8 @@
 	P.attackby(T, user, params)
 
 /turf/open/floor/wood/pry_tile(obj/item/C, mob/user, silent = FALSE)
-	var/is_screwdriver = istype(C, /obj/item/screwdriver)
-	playsound(src, C.usesound, 80, 1)
-	return remove_tile(user, silent, make_tile = is_screwdriver)
+	C.play_tool_sound(src, 80)
+	return remove_tile(user, silent, (C.tool_behaviour == TOOL_SCREWDRIVER))
 
 /turf/open/floor/wood/remove_tile(mob/user, silent = FALSE, make_tile = TRUE)
 	if(broken || burnt)
@@ -63,7 +65,7 @@
 	temperature = 255.37
 
 /turf/open/floor/wood/airless
-	initial_gas_mix = "TEMP=2.7"
+	initial_gas_mix = AIRLESS_ATMOS
 
 /turf/open/floor/grass
 	name = "grass patch"
@@ -72,24 +74,30 @@
 	floor_tile = /obj/item/stack/tile/grass
 	broken_states = list("sand")
 	flags_1 = NONE
-	var/ore_type = /obj/item/ore/glass
+	bullet_bounce_sound = null
+	footstep = FOOTSTEP_GRASS
+	barefootstep = FOOTSTEP_GRASS
+	clawfootstep = FOOTSTEP_GRASS
+	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
+	var/ore_type = /obj/item/stack/ore/glass
 	var/turfverb = "uproot"
+	tiled_dirt = FALSE
 
 /turf/open/floor/grass/Initialize()
 	. = ..()
 	update_icon()
 
 /turf/open/floor/grass/attackby(obj/item/C, mob/user, params)
-	if(istype(C, /obj/item/shovel) && params)
-		new ore_type(src)
-		new ore_type(src) //Make some sand if you shovel grass
-		user.visible_message("[user] digs up [src].", "<span class='notice'>You [src.turfverb] [src].</span>")
+	if((C.tool_behaviour == TOOL_SHOVEL) && params)
+		new ore_type(src, 2)
+		user.visible_message("[user] digs up [src].", "<span class='notice'>You [turfverb] [src].</span>")
 		playsound(src, 'sound/effects/shovel_dig.ogg', 50, 1)
 		make_plating()
 	if(..())
 		return
 
 /turf/open/floor/grass/snow
+	gender = PLURAL
 	name = "snow"
 	icon = 'icons/turf/snow.dmi'
 	desc = "Looks cold."
@@ -97,19 +105,26 @@
 	ore_type = /obj/item/stack/sheet/mineral/snow
 	planetary_atmos = TRUE
 	floor_tile = null
-	initial_gas_mix = "o2=22;n2=82;TEMP=180"
+	initial_gas_mix = FROZEN_ATMOS
 	slowdown = 2
+	bullet_sizzle = TRUE
+	footstep = FOOTSTEP_SAND
+	barefootstep = FOOTSTEP_SAND
+	clawfootstep = FOOTSTEP_SAND
+	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 
-/turf/open/floor/grass/snow/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/crowbar))//You need to dig this turf out instead of crowbarring it
-		return
-	..()
+/turf/open/floor/grass/snow/try_replace_tile(obj/item/stack/tile/T, mob/user, params)
+	return
+
+/turf/open/floor/grass/snow/crowbar_act(mob/living/user, obj/item/I)
+	return
 
 /turf/open/floor/grass/snow/basalt //By your powers combined, I am captain planet
+	gender = NEUTER
 	name = "volcanic floor"
 	icon = 'icons/turf/floors.dmi'
 	icon_state = "basalt"
-	ore_type = /obj/item/ore/glass/basalt
+	ore_type = /obj/item/stack/ore/glass/basalt
 	initial_gas_mix = LAVALAND_DEFAULT_ATMOS
 	slowdown = 0
 
@@ -119,6 +134,10 @@
 		icon_state = "basalt[rand(0, 12)]"
 		set_basalt_light(src)
 
+/turf/open/floor/grass/snow/safe
+	slowdown = 1.5
+	planetary_atmos = FALSE
+
 
 /turf/open/floor/grass/fakebasalt //Heart is not a real planeteer power
 	name = "aesthetic volcanic flooring"
@@ -126,9 +145,13 @@
 	icon = 'icons/turf/floors.dmi'
 	icon_state = "basalt"
 	floor_tile = /obj/item/stack/tile/basalt
-	ore_type = /obj/item/ore/glass/basalt
+	ore_type = /obj/item/stack/ore/glass/basalt
 	turfverb = "dig up"
 	slowdown = 0
+	footstep = FOOTSTEP_SAND
+	barefootstep = FOOTSTEP_SAND
+	clawfootstep = FOOTSTEP_SAND
+	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
 
 /turf/open/floor/grass/fakebasalt/Initialize()
 	. = ..()
@@ -147,10 +170,16 @@
 	smooth = SMOOTH_TRUE
 	canSmoothWith = list(/turf/open/floor/carpet)
 	flags_1 = NONE
+	bullet_bounce_sound = null
+	footstep = FOOTSTEP_CARPET
+	barefootstep = FOOTSTEP_CARPET_BAREFOOT
+	clawfootstep = FOOTSTEP_CARPET_BAREFOOT
+	heavyfootstep = FOOTSTEP_GENERIC_HEAVY
+	tiled_dirt = FALSE
 
 /turf/open/floor/carpet/examine(mob/user)
-	..()
-	to_chat(user, "<span class='notice'>There's a <b>small crack</b> on the edge of it.</span>")
+	. = ..()
+	. += "<span class='notice'>There's a <b>small crack</b> on the edge of it.</span>"
 
 /turf/open/floor/carpet/Initialize()
 	. = ..()
@@ -183,11 +212,11 @@
 			A.narsie_act()
 
 /turf/open/floor/carpet/break_tile()
-	broken = 1
+	broken = TRUE
 	update_icon()
 
 /turf/open/floor/carpet/burn_tile()
-	burnt = 1
+	burnt = TRUE
 	update_icon()
 
 /turf/open/floor/carpet/get_smooth_underlay_icon(mutable_appearance/underlay_appearance, turf/asking_turf, adjacency_dir)
@@ -200,6 +229,7 @@
 	canSmoothWith = list(/turf/open/floor/fakepit)
 	icon = 'icons/turf/floors/Chasms.dmi'
 	icon_state = "smooth"
+	tiled_dirt = FALSE
 
 /turf/open/floor/fakepit/get_smooth_underlay_icon(mutable_appearance/underlay_appearance, turf/asking_turf, adjacency_dir)
 	underlay_appearance.icon = 'icons/turf/floors.dmi'
@@ -212,6 +242,7 @@
 	floor_tile = /obj/item/stack/tile/fakespace
 	broken_states = list("damaged")
 	plane = PLANE_SPACE
+	tiled_dirt = FALSE
 
 /turf/open/floor/fakespace/Initialize()
 	. = ..()

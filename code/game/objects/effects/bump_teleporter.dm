@@ -11,15 +11,22 @@
 
 	var/static/list/AllTeleporters
 
-/obj/effect/bump_teleporter/New()
-	..()
+/obj/effect/bump_teleporter/Initialize()
+	. = ..()
 	LAZYADD(AllTeleporters, src)
 
 /obj/effect/bump_teleporter/Destroy()
 	LAZYREMOVE(AllTeleporters, src)
 	return ..()
 
-/obj/effect/bump_teleporter/CollidedWith(atom/movable/AM)
+
+/obj/effect/bump_teleporter/singularity_act()
+	return
+
+/obj/effect/bump_teleporter/singularity_pull()
+	return
+
+/obj/effect/bump_teleporter/Bumped(atom/movable/AM)
 	if(!ismob(AM))
 		return
 	if(!id_target)

@@ -6,7 +6,7 @@ Vomiting
 	Very Very Noticable.
 	Decreases resistance.
 	Doesn't increase stage speed.
-	Little transmittable.
+	Little transmissibility.
 	Medium Level.
 
 Bonus
@@ -34,9 +34,11 @@ Bonus
 	symptom_delay_max = 80
 	var/vomit_blood = FALSE
 	var/proj_vomit = 0
-	threshold_desc = "<b>Resistance 7:</b> Host will vomit blood, causing internal damage.<br>\
-					  <b>Transmission 7:</b> Host will projectile vomit, increasing vomiting range.<br>\
-					  <b>Stealth 4:</b> The symptom remains hidden until active."
+	threshold_descs = list(
+		"Resistance 7" =  "Host will vomit blood, causing internal damage.",
+		"Transmission 7" =  "Host will projectile vomit, increasing vomiting range.",
+		"Stealth 4" =  "The symptom remains hidden until active."
+	)
 
 /datum/symptom/vomit/Start(datum/disease/advance/A)
 	if(!..())
@@ -55,7 +57,7 @@ Bonus
 	switch(A.stage)
 		if(1, 2, 3, 4)
 			if(prob(base_message_chance) && !suppress_warning)
-				to_chat(M, "<span class='warning'>[pick("You feel nauseous.", "You feel like you're going to throw up!")]</span>")
+				to_chat(M, "<span class='warning'>[pick("You feel nauseated.", "You feel like you're going to throw up!")]</span>")
 		else
 			vomit(M)
 

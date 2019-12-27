@@ -2,9 +2,12 @@
 	name = "portable air scrubber"
 	icon_state = "pscrubber:0"
 	density = TRUE
+	ui_x = 320
+	ui_y = 335
 
 	var/on = FALSE
 	var/volume_rate = 1000
+	var/overpressure_m = 80
 	volume = 1000
 
 	var/list/scrubbing = list(/datum/gas/plasma, /datum/gas/carbon_dioxide, /datum/gas/nitrous_oxide, /datum/gas/bz, /datum/gas/nitryl, /datum/gas/tritium, /datum/gas/hypernoblium, /datum/gas/water_vapor)
@@ -36,6 +39,9 @@
 		scrub(T.return_air())
 
 /obj/machinery/portable_atmospherics/scrubber/proc/scrub(var/datum/gas_mixture/mixture)
+	if(air_contents.return_pressure() >= overpressure_m * ONE_ATMOSPHERE)
+		return
+	
 	var/transfer_moles = min(1, volume_rate / mixture.volume) * mixture.total_moles()
 
 	var/datum/gas_mixture/filtering = mixture.remove(transfer_moles) // Remove part of the mixture to filter.
@@ -45,7 +51,7 @@
 
 	filtered.temperature = filtering.temperature
 	for(var/gas in filtering.gases & scrubbing)
-		ADD_GAS(gas, filtered.gases)
+		filtered.add_gas(gas)
 		filtered.gases[gas][MOLES] = filtering.gases[gas][MOLES] // Shuffle the "bad" gasses to the filtered mixture.
 		filtering.gases[gas][MOLES] = 0
 	filtering.garbage_collect() // Now that the gasses are set to 0, clean up the mixture.
@@ -56,17 +62,19 @@
 		air_update_turf()
 
 /obj/machinery/portable_atmospherics/scrubber/emp_act(severity)
+	. = ..()
+	if(. & EMP_PROTECT_SELF)
+		return
 	if(is_operational())
 		if(prob(50 / severity))
 			on = !on
 		update_icon()
-	..()
 
 /obj/machinery/portable_atmospherics/scrubber/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, \
 														datum/tgui/master_ui = null, datum/ui_state/state = GLOB.physical_state)
 	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
 	if(!ui)
-		ui = new(user, src, ui_key, "portable_scrubber", name, 420, 335, master_ui, state)
+		ui = new(user, src, ui_key, "portable_scrubber", name, ui_x, ui_y, master_ui, state)
 		ui.open()
 
 /obj/machinery/portable_atmospherics/scrubber/ui_data()
@@ -75,11 +83,29 @@
 	data["connected"] = connected_port ? 1 : 0
 	data["pressure"] = round(air_contents.return_pressure() ? air_contents.return_pressure() : 0)
 
+	data["id_tag"] = -1 //must be defined in order to reuse code between portable and vent scrubbers
+	data["filter_types"] = list()
+	for(var/path in GLOB.meta_gas_info)
+		var/list/gas = GLOB.meta_gas_info[path]
+		data["filter_types"] += list(list("gas_id" = gas[META_GAS_ID], "gas_name" = gas[META_GAS_NAME], "enabled" = (path in scrubbing)))
+
 	if(holding)
 		data["holding"] = list()
 		data["holding"]["name"] = holding.name
 		data["holding"]["pressure"] = round(holding.air_contents.return_pressure())
+	else
+		data["holding"] = null
 	return data
+
+/obj/machinery/portable_atmospherics/scrubber/replace_tank(mob/living/user, close_valve)
+	. = ..()
+	if(.)
+		if(close_valve)
+			if(on)
+				on = FALSE
+				update_icon()
+		else if(on && holding)
+			investigate_log("[key_name(user)] started a transfer into [holding].<br>", INVESTIGATE_ATMOS)
 
 /obj/machinery/portable_atmospherics/scrubber/ui_act(action, params)
 	if(..())
@@ -90,9 +116,11 @@
 			. = TRUE
 		if("eject")
 			if(holding)
-				holding.loc = get_turf(src)
-				holding = null
+				replace_tank(usr, FALSE)
 				. = TRUE
+		if("toggle_filter")
+			scrubbing ^= gas_id2path(params["val"])
+			. = TRUE
 	update_icon()
 
 /obj/machinery/portable_atmospherics/scrubber/huge
@@ -102,6 +130,7 @@
 	active_power_usage = 500
 	idle_power_usage = 10
 
+	overpressure_m = 200
 	volume_rate = 1500
 	volume = 50000
 

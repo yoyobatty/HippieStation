@@ -35,6 +35,10 @@
 	name = "syndi-cakes"
 	icon_state = "syndi_cakes"
 
+/obj/item/trash/energybar
+	name = "energybar wrapper"
+	icon_state = "energybar"
+
 /obj/item/trash/waffles
 	name = "waffles tray"
 	icon_state = "waffles"
@@ -42,7 +46,7 @@
 /obj/item/trash/plate
 	name = "plate"
 	icon_state = "plate"
-	resistance_flags = 0
+	resistance_flags = NONE
 
 /obj/item/trash/pistachios
 	name = "pistachios pack"
@@ -55,7 +59,7 @@
 /obj/item/trash/tray
 	name = "tray"
 	icon_state = "tray"
-	resistance_flags = 0
+	resistance_flags = NONE
 
 /obj/item/trash/candle
 	name = "candle"
@@ -65,18 +69,18 @@
 /obj/item/trash/can
 	name = "crushed can"
 	icon_state = "cola"
-	resistance_flags = 0
+	resistance_flags = NONE
+	grind_results = list(/datum/reagent/aluminium = 10)
+
+/obj/item/trash/can/Initialize()
+	. = ..()
+	pixel_x = rand(-4,4)
+	pixel_y = rand(-4,4)
+
+/obj/item/trash/can/Initialize()
+	. = ..()
+	pixel_x = rand(-4,4)
+	pixel_y = rand(-4,4)
 
 /obj/item/trash/attack(mob/M, mob/living/user)
 	return
-
-/obj/item/trash/coal
-	name = "lump of coal"
-	icon = 'icons/obj/mining.dmi'
-	icon_state = "slag"
-	desc = "Someone's gotten on the naughty list."
-
-/obj/item/trash/coal/burn()
-	visible_message("[src] fuses into a diamond! Someone wasn't so naughty after all...")
-	new /obj/item/ore/diamond(loc)
-	qdel(src)

@@ -1,3 +1,6 @@
+GLOBAL_VAR_INIT(OOC_COLOR, null)//If this is null, use the CSS for OOC. Otherwise, use a custom colour.
+GLOBAL_VAR_INIT(normal_ooc_colour, "#002eb8")
+
 /client/verb/ooc(msg as text)
 	set name = "OOC" //Gave this shit a shorter name so you only have to time out "ooc" rather than "ooc message" to use it --NeoFite
 	set category = "OOC"
@@ -19,9 +22,11 @@
 		if(prefs.muted & MUTE_OOC)
 			to_chat(src, "<span class='danger'>You cannot use OOC (muted).</span>")
 			return
-		if(jobban_isbanned(src.mob, "OOC"))
-			to_chat(src, "<span class='danger'>You have been banned from OOC.</span>")
-			return
+	if(is_banned_from(ckey, "OOC"))
+		to_chat(src, "<span class='danger'>You have been banned from OOC.</span>")
+		return
+	if(QDELETED(src))
+		return
 
 	msg = copytext(sanitize(msg), 1, MAX_MESSAGE_LEN)
 	var/raw_msg = msg
@@ -48,26 +53,39 @@
 		to_chat(src, "<span class='danger'>You have OOC muted.</span>")
 		return
 
-	log_talk(mob,"[key_name(src)] : [raw_msg]",LOGOOC)
-	mob.log_message("[key]: [raw_msg]", INDIVIDUAL_OOC_LOG)
+	mob.log_talk(raw_msg, LOG_OOC)
 
 	var/keyname = key
 	if(prefs.unlock_content)
 		if(prefs.toggles & MEMBER_PUBLIC)
 			keyname = "<font color='[prefs.ooccolor ? prefs.ooccolor : GLOB.normal_ooc_colour]'>[icon2html('icons/member_content.dmi', world, "blag")][keyname]</font>"
-
+	//The linkify span classes and linkify=TRUE below make ooc text get clickable chat href links if you pass in something resembling a url
+	var/ooc_icons = add_ooc_icons()	// hippie start -- custom ooc icons depending on rank, the actual ooc icon insertion as well as mentor and donator ooc colours
+	keyname = ooc_icons + keyname
 	for(var/client/C in GLOB.clients)
 		if(C.prefs.chat_toggles & CHAT_OOC)
 			if(holder)
 				if(!holder.fakekey || C.holder)
 					if(check_rights_for(src, R_ADMIN))
-						to_chat(C, "<span class='adminooc'>[CONFIG_GET(flag/allow_admin_ooccolor) && prefs.ooccolor ? "<font color=[prefs.ooccolor]>" :"" ]<span class='prefix'>OOC:</span> <EM>[keyname][holder.fakekey ? "/([holder.fakekey])" : ""]:</EM> <span class='message'>[msg]</span></span></font>")
+						to_chat(C, "<span class='adminooc'>[CONFIG_GET(flag/allow_admin_ooccolor) && prefs.ooccolor ? "<font color=[prefs.ooccolor]>" :"" ]<span class='prefix'>OOC:</span> <EM>[keyname][holder.fakekey ? "/([holder.fakekey])" : ""]:</EM> <span class='message linkify'>[msg]</span></span></font>")
 					else
-						to_chat(C, "<font color='[GLOB.HIPPIE_MENTOR_OOC_COLOUR]'><span class='ooc'><span class='prefix'>OOC:</span> <EM>[keyname][holder.fakekey ? "/([holder.fakekey])" : ""]:</EM> <span class='message'>[msg]</span></span>")
+						to_chat(C, "<span class='adminobserverooc'><span class='prefix'>OOC:</span> <EM>[keyname][holder.fakekey ? "/([holder.fakekey])" : ""]:</EM> <span class='message linkify'>[msg]</span></span>")
 				else
-					to_chat(C, "<font color='[GLOB.normal_ooc_colour]'><span class='ooc'><span class='prefix'>OOC:</span> <EM>[holder.fakekey ? holder.fakekey : key]:</EM> <span class='message'>[msg]</span></span></font>")
+					if(is_donator)	//hippie start -- is donator check to make unique ooc colour
+						to_chat(C, "<font color='[HIPPIE_DONATOR_OOC_COLOUR]'><b><span class='prefix'>OOC:</span> <EM>[holder.fakekey ? holder.fakekey : key]:</EM> <span class='message linkify'>[msg]</span></b></font>")
+					if(GLOB.OOC_COLOR && !is_donator)
+						to_chat(C, "<font color='[GLOB.OOC_COLOR]'><b><span class='prefix'>OOC:</span> <EM>[holder.fakekey ? holder.fakekey : key]:</EM> <span class='message linkify'>[msg]</span></b></font>")
+					else
+						to_chat(C, "<span class='ooc'><b><span class='prefix'>OOC:</span> <EM>[holder.fakekey ? holder.fakekey : key]:</EM> <span class='message linkify'>[msg]</span></span></b>")
+			else if(is_mentor())
+				to_chat(C, "<font color='[HIPPIE_MENTOR_OOC_COLOUR]'><b><span class='prefix'>OOC:</span> <EM>[keyname]:</EM> <span class='message linkify'>[msg]</span></b>")
+			else if(is_donator)
+				to_chat(C, "<font color='[HIPPIE_DONATOR_OOC_COLOUR]'><b><span class='prefix'>OOC:</span> <EM>[keyname]:</EM> <span class='message linkify'>[msg]</span></b>")
 			else if(!(key in C.prefs.ignoring))
-				to_chat(C, "<font color='[GLOB.normal_ooc_colour]'><span class='ooc'><span class='prefix'>OOC:</span> <EM>[keyname]:</EM> <span class='message'>[msg]</span></span></font>")
+				if(GLOB.OOC_COLOR)
+					to_chat(C, "<font color='[GLOB.OOC_COLOR]'><b><span class='prefix'>OOC:</span> <EM>[keyname]:</EM> <span class='message linkify'>[msg]</span></b></font>")
+				else
+					to_chat(C, "<span class='ooc'><span class='prefix'>OOC:</span> <EM>[keyname]:</EM> <span class='message linkify'>[msg]</span></span>")
 
 /proc/toggle_ooc(toggle = null)
 	if(toggle != null) //if we're specifically en/disabling ooc
@@ -88,25 +106,23 @@
 	else
 		GLOB.dooc_allowed = !GLOB.dooc_allowed
 
-GLOBAL_VAR_INIT(normal_ooc_colour, OOC_COLOR)
-
 /client/proc/set_ooc(newColor as color)
 	set name = "Set Player OOC Color"
 	set desc = "Modifies player OOC Color"
 	set category = "Fun"
-	GLOB.normal_ooc_colour = sanitize_ooccolor(newColor)
+	GLOB.OOC_COLOR = sanitize_ooccolor(newColor)
 
 /client/proc/reset_ooc()
 	set name = "Reset Player OOC Color"
 	set desc = "Returns player OOC Color to default"
 	set category = "Fun"
-	GLOB.normal_ooc_colour = OOC_COLOR
+	GLOB.OOC_COLOR = null
 
 /client/verb/colorooc()
 	set name = "Set Your OOC Color"
 	set category = "Preferences"
 
-	if(!holder || check_rights_for(src, R_ADMIN))
+	if(!holder || !check_rights_for(src, R_ADMIN))
 		if(!is_content_unlocked())
 			return
 
@@ -114,7 +130,7 @@ GLOBAL_VAR_INIT(normal_ooc_colour, OOC_COLOR)
 	if(new_ooccolor)
 		prefs.ooccolor = sanitize_ooccolor(new_ooccolor)
 		prefs.save_preferences()
-	SSblackbox.add_details("admin_verb","Set OOC Color") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Set OOC Color") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 	return
 
 /client/verb/resetcolorooc()
@@ -122,7 +138,7 @@ GLOBAL_VAR_INIT(normal_ooc_colour, OOC_COLOR)
 	set desc = "Returns your OOC Color to default"
 	set category = "Preferences"
 
-	if(!holder || check_rights_for(src, R_ADMIN))
+	if(!holder || !check_rights_for(src, R_ADMIN))
 		if(!is_content_unlocked())
 			return
 
@@ -228,8 +244,9 @@ GLOBAL_VAR_INIT(normal_ooc_colour, OOC_COLOR)
 	set category = "OOC"
 	set desc ="Check the Message of the Day"
 
-	if(GLOB.join_motd)
-		to_chat(src, "<div class=\"motd\">[GLOB.join_motd]</div>")
+	var/motd = global.config.motd
+	if(motd)
+		to_chat(src, "<div class=\"motd\">[motd]</div>", handle_whitespace=FALSE)
 	else
 		to_chat(src, "<span class='notice'>The Message of the Day has not been set.</span>")
 
@@ -243,6 +260,21 @@ GLOBAL_VAR_INIT(normal_ooc_colour, OOC_COLOR)
 		return
 
 	browse_messages(null, usr.ckey, null, TRUE)
+
+/client/proc/self_playtime()
+	set name = "View tracked playtime"
+	set category = "OOC"
+	set desc = "View the amount of playtime for roles the server has tracked."
+
+	if(!CONFIG_GET(flag/use_exp_tracking))
+		to_chat(usr, "<span class='notice'>Sorry, tracking is currently disabled.</span>")
+		return
+
+	var/list/body = list()
+	body += "<html><head><title>Playtime for [key]</title></head><BODY><BR>Playtime:"
+	body += get_exp_report()
+	body += "</BODY></HTML>"
+	usr << browse(body.Join(), "window=playerplaytime[ckey];size=550x615")
 
 /client/proc/ignore_key(client)
 	var/client/C = client
@@ -258,7 +290,7 @@ GLOBAL_VAR_INIT(normal_ooc_colour, OOC_COLOR)
 	set category = "OOC"
 	set desc ="Ignore a player's messages on the OOC channel"
 
-	
+
 	var/see_ghost_names = isobserver(mob)
 	var/list/choices = list()
 	for(var/client/C in GLOB.clients)
@@ -275,3 +307,78 @@ GLOBAL_VAR_INIT(normal_ooc_colour, OOC_COLOR)
 		to_chat(src, "You can't ignore yourself.")
 		return
 	ignore_key(selection)
+
+/client/proc/show_previous_roundend_report()
+	set name = "Your Last Round"
+	set category = "OOC"
+	set desc = "View the last round end report you've seen"
+
+	SSticker.show_roundend_report(src, TRUE)
+
+/client/verb/fit_viewport()
+	set name = "Fit Viewport"
+	set category = "OOC"
+	set desc = "Fit the width of the map window to match the viewport"
+
+	// Fetch aspect ratio
+	var/view_size = getviewsize(view)
+	var/aspect_ratio = view_size[1] / view_size[2]
+
+	// Calculate desired pixel width using window size and aspect ratio
+	var/sizes = params2list(winget(src, "mainwindow.split;mapwindow", "size"))
+	var/map_size = splittext(sizes["mapwindow.size"], "x")
+	var/height = text2num(map_size[2])
+	var/desired_width = round(height * aspect_ratio)
+	if (text2num(map_size[1]) == desired_width)
+		// Nothing to do
+		return
+
+	var/split_size = splittext(sizes["mainwindow.split.size"], "x")
+	var/split_width = text2num(split_size[1])
+
+	// Calculate and apply a best estimate
+	// +4 pixels are for the width of the splitter's handle
+	var/pct = 100 * (desired_width + 4) / split_width
+	winset(src, "mainwindow.split", "splitter=[pct]")
+
+	// Apply an ever-lowering offset until we finish or fail
+	var/delta
+	for(var/safety in 1 to 10)
+		var/after_size = winget(src, "mapwindow", "size")
+		map_size = splittext(after_size, "x")
+		var/got_width = text2num(map_size[1])
+
+		if (got_width == desired_width)
+			// success
+			return
+		else if (isnull(delta))
+			// calculate a probable delta value based on the difference
+			delta = 100 * (desired_width - got_width) / split_width
+		else if ((delta > 0 && got_width > desired_width) || (delta < 0 && got_width < desired_width))
+			// if we overshot, halve the delta and reverse direction
+			delta = -delta/2
+
+		pct += delta
+		winset(src, "mainwindow.split", "splitter=[pct]")
+
+
+/client/verb/policy()
+	set name = "Show Policy"
+	set desc = "Show special server rules related to your current character."
+	set category = "OOC"
+	
+	//Collect keywords
+	var/list/keywords = mob.get_policy_keywords()
+	var/header = get_policy(POLICY_VERB_HEADER)
+	var/list/policytext = list(header,"<hr>")
+	var/anything = FALSE
+	for(var/keyword in keywords)
+		var/p = get_policy(keyword)
+		if(p)
+			policytext += p
+			policytext += "<hr>"
+			anything = TRUE
+	if(!anything)
+		policytext += "No related rules found."
+
+	usr << browse(policytext.Join(""),"window=policy")

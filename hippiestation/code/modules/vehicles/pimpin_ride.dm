@@ -1,4 +1,4 @@
-/obj/vehicle/lawnmower
+/obj/vehicle/ridden/lawnmower
 	name = "lawn mower"
 	desc = "Equipped with reliable safeties to prevent <i>accidents</i> in the workplace."
 	icon = 'hippiestation/icons/obj/vehicles.dmi'
@@ -8,21 +8,23 @@
 	var/list/gib_sounds = list('hippiestation/sound/effects/mowermovesquish.ogg')
 	var/driver
 
-/obj/vehicle/lawnmower/emagged
+/obj/vehicle/ridden/lawnmower/Initialize()
+	.= ..()
+	var/datum/component/riding/D = LoadComponent(/datum/component/riding)
+	D.vehicle_move_delay = 2
+	D.set_riding_offsets(RIDING_OFFSET_ALL, list(TEXT_NORTH = list(0, 4), TEXT_SOUTH = list(0, 7), TEXT_EAST = list(-5, 2), TEXT_WEST = list(5, 2)))
+
+/obj/vehicle/ridden/lawnmower/emagged
 	emagged = TRUE
 
-/obj/vehicle/lawnmower/emag_act(mob/user)
+/obj/vehicle/ridden/lawnmower/emag_act(mob/user)
 	if(emagged)
 		to_chat(user, "<span class='warning'>The safety mechanisms on \the [src] are already disabled!</span>")
 		return
 	to_chat(user, "<span class='warning'>You disable the safety mechanisms on \the [src].</span>")
 	emagged = TRUE
 
-/obj/vehicle/lawnmower/buckle_mob(mob/living/buckled_mob, force = 0, check_loc = 0)
-	. = ..()
-	riding_datum = new/datum/riding/lawnmower
-
-/obj/vehicle/lawnmower/Bump(atom/A)
+/obj/vehicle/ridden/lawnmower/Bump(atom/A)
 	if(emagged)
 		if(isliving(A))
 			var/mob/living/M = A
@@ -30,9 +32,10 @@
 			var/atom/newLoc = get_edge_target_turf(M, get_dir(src, get_step_away(M, src)))
 			M.throw_at(newLoc, 4, 1)
 
-/obj/vehicle/lawnmower/Move()
+/obj/vehicle/ridden/lawnmower/Move()
 	..()
 	var/gibbed = FALSE
+	var/gib_scream = FALSE
 	var/mob/living/carbon/H
 
 	if(has_buckled_mobs())
@@ -44,12 +47,17 @@
 				continue
 			if(M.lying)
 				visible_message("<span class='danger'>\the [src] grinds [M.name] into a fine paste!</span>")
+				if (M.stat != DEAD)
+					gib_scream = TRUE
 				M.gib()
 				shake_camera(M, 20, 1)
 				gibbed = TRUE
 
 	if(gibbed)
 		shake_camera(H, 10, 1)
-		playsound(loc, pick(gib_sounds), 75, 1)
+		if (gib_scream)
+			playsound(loc, 'hippiestation/sound/voice/gib_scream.ogg', 100, 1, frequency = rand(11025*0.75, 11025*1.25))
+		else
+			playsound(loc, pick(gib_sounds), 75, 1)
 	else
 		playsound(loc, pick(drive_sounds), 75, 1)

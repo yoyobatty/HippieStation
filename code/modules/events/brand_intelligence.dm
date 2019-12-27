@@ -32,7 +32,7 @@
 
 /datum/round_event/brand_intelligence/start()
 	for(var/obj/machinery/vending/V in GLOB.machines)
-		if(!(V.z in GLOB.station_z_levels))
+		if(!is_station_level(V.z))
 			continue
 		vendingMachines.Add(V)
 	if(!vendingMachines.len)
@@ -42,7 +42,7 @@
 	vendingMachines.Remove(originMachine)
 	originMachine.shut_up = 0
 	originMachine.shoot_inventory = 1
-
+	announce_to_ghosts(originMachine)
 
 /datum/round_event/brand_intelligence/tick()
 	if(!originMachine || QDELETED(originMachine) || originMachine.shut_up || originMachine.wires.is_all_cut())	//if the original vending machine is missing or has it's voice switch flipped
@@ -67,12 +67,12 @@
 
 		kill()
 		return
-	if(IsMultiple(activeFor, 4))
+	if(ISMULTIPLE(activeFor, 4))
 		var/obj/machinery/vending/rebel = pick(vendingMachines)
 		vendingMachines.Remove(rebel)
 		infectedMachines.Add(rebel)
 		rebel.shut_up = 0
 		rebel.shoot_inventory = 1
 
-		if(IsMultiple(activeFor, 8))
+		if(ISMULTIPLE(activeFor, 8))
 			originMachine.speak(pick(rampant_speeches))

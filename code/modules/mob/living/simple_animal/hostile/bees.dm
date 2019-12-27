@@ -19,7 +19,6 @@
 	gender = FEMALE
 	speak_emote = list("buzzes")
 	emote_hear = list("buzzes")
-	turns_per_move = 0
 	melee_damage_lower = 1
 	melee_damage_upper = 1
 	attacktext = "stings"
@@ -30,14 +29,17 @@
 	health = 10
 	spacewalk = TRUE
 	faction = list("hostile")
-	move_to_delay = 0
+	move_to_delay = 1
+	turns_per_move = 3
 	obj_damage = 0
 	environment_smash = ENVIRONMENT_SMASH_NONE
 	mouse_opacity = MOUSE_OPACITY_OPAQUE
 	pass_flags = PASSTABLE | PASSGRILLE | PASSMOB
+	density = FALSE
 	mob_size = MOB_SIZE_TINY
+	mob_biotypes = list(MOB_ORGANIC, MOB_BUG)
 	movement_type = FLYING
-	gold_core_spawnable = 1
+	gold_core_spawnable = HOSTILE_SPAWN
 	search_objects = 1 //have to find those plant trays!
 
 	//Spaceborn beings don't get hurt by space
@@ -56,7 +58,7 @@
 /mob/living/simple_animal/hostile/poison/bees/Initialize()
 	. = ..()
 	generate_bee_visuals()
-
+	AddComponent(/datum/component/swarming)
 
 /mob/living/simple_animal/hostile/poison/bees/Destroy()
 	if(beehome)
@@ -75,11 +77,21 @@
 
 
 /mob/living/simple_animal/hostile/poison/bees/examine(mob/user)
-	..()
+	. = ..()
 
 	if(!beehome)
-		to_chat(user, "<span class='warning'>This bee is homeless!</span>")
+		. += "<span class='warning'>This bee is homeless!</span>"
 
+/mob/living/simple_animal/hostile/poison/bees/ListTargets() // Bee processing is expessive, so we override them finding targets here.
+	if(!search_objects) //In case we want to have purely hostile bees
+		return ..()
+	else
+		. = list() // The following code is only very slightly slower than just returning oview(vision_range, targets_from), but it saves us much more work down the line
+		var/list/searched_for = oview(vision_range, targets_from)
+		for(var/obj/A in searched_for)
+			. += A
+		for(var/mob/A in searched_for)
+			. += A
 
 /mob/living/simple_animal/hostile/poison/bees/proc/generate_bee_visuals()
 	cut_overlays()
@@ -140,13 +152,14 @@
 			var/mob/living/L = target
 			if(L.reagents)
 				beegent.reaction_mob(L, INJECT)
-				L.reagents.add_reagent(beegent.id, rand(1,5))
+				L.reagents.add_reagent(beegent.type, rand(1,5))
 
 
 /mob/living/simple_animal/hostile/poison/bees/proc/assign_reagent(datum/reagent/R)
 	if(istype(R))
 		beegent = R
 		name = "[initial(name)] ([R.name])"
+		poison_type = null
 		generate_bee_visuals()
 
 
@@ -205,16 +218,16 @@
 /mob/living/simple_animal/hostile/poison/bees/toxin/Initialize()
 	. = ..()
 	var/datum/reagent/R = pick(typesof(/datum/reagent/toxin))
-	assign_reagent(GLOB.chemical_reagents_list[initial(R.id)])
+	assign_reagent(GLOB.chemical_reagents_list[R])
 
- /mob/living/simple_animal/hostile/poison/bees/queen
- 	name = "queen bee"
- 	desc = "She's the queen of bees, BZZ BZZ!"
- 	icon_base = "queen"
- 	isqueen = TRUE
+/mob/living/simple_animal/hostile/poison/bees/queen
+	name = "queen bee"
+	desc = "She's the queen of bees, BZZ BZZ!"
+	icon_base = "queen"
+	isqueen = TRUE
 
 
- //the Queen doesn't leave the box on her own, and she CERTAINLY doesn't pollinate by herself
+//the Queen doesn't leave the box on her own, and she CERTAINLY doesn't pollinate by herself
 /mob/living/simple_animal/hostile/poison/bees/queen/Found(atom/A)
 	return FALSE
 
@@ -225,7 +238,7 @@
 	if(. && beegent && isliving(target))
 		var/mob/living/L = target
 		beegent.reaction_mob(L, TOUCH)
-		L.reagents.add_reagent(beegent.id, rand(1,5))
+		L.reagents.add_reagent(beegent.type, rand(1,5))
 
 
 //PEASENT BEES
@@ -236,7 +249,7 @@
 /mob/living/simple_animal/hostile/poison/bees/proc/reagent_incompatible(mob/living/simple_animal/hostile/poison/bees/B)
 	if(!B)
 		return FALSE
-	if(B.beegent && beegent && B.beegent.id != beegent.id || B.beegent && !beegent || !B.beegent && beegent)
+	if(B.beegent && beegent && B.beegent.type != beegent.type || B.beegent && !beegent || !B.beegent && beegent)
 		return TRUE
 	return FALSE
 
@@ -253,9 +266,9 @@
 /obj/item/queen_bee/attackby(obj/item/I, mob/user, params)
 	if(istype(I, /obj/item/reagent_containers/syringe))
 		var/obj/item/reagent_containers/syringe/S = I
-		if(S.reagents.has_reagent("royal_bee_jelly")) //checked twice, because I really don't want royal bee jelly to be duped
-			if(S.reagents.has_reagent("royal_bee_jelly",5))
-				S.reagents.remove_reagent("royal_bee_jelly", 5)
+		if(S.reagents.has_reagent(/datum/reagent/royal_bee_jelly)) //checked twice, because I really don't want royal bee jelly to be duped
+			if(S.reagents.has_reagent(/datum/reagent/royal_bee_jelly,5))
+				S.reagents.remove_reagent(/datum/reagent/royal_bee_jelly, 5)
 				var/obj/item/queen_bee/qb = new(user.drop_location())
 				qb.queen = new(qb)
 				if(queen && queen.beegent)
@@ -266,10 +279,10 @@
 				to_chat(user, "<span class='warning'>You don't have enough royal bee jelly to split a bee in two!</span>")
 		else
 			var/datum/reagent/R = GLOB.chemical_reagents_list[S.reagents.get_master_reagent_id()]
-			if(R && S.reagents.has_reagent(R.id, 5))
-				S.reagents.remove_reagent(R.id,5)
+			if(R && S.reagents.has_reagent(R.type, 5))
+				S.reagents.remove_reagent(R.type,5)
 				queen.assign_reagent(R)
-				user.visible_message("<span class='warning'>[user] injects [src]'s genome with [R.name], mutating it's DNA!</span>","<span class='warning'>You inject [src]'s genome with [R.name], mutating it's DNA!</span>")
+				user.visible_message("<span class='warning'>[user] injects [src]'s genome with [R.name], mutating its DNA!</span>","<span class='warning'>You inject [src]'s genome with [R.name], mutating its DNA!</span>")
 				name = queen.name
 			else
 				to_chat(user, "<span class='warning'>You don't have enough units of that chemical to modify the bee's DNA!</span>")
@@ -291,5 +304,12 @@
 		if(idle >= BEE_IDLE_ROAMING && prob(BEE_PROB_GOROAM))
 			toggle_ai(AI_ON)
 			forceMove(beehome.drop_location())
-	else  
+	else
 		..()
+
+/mob/living/simple_animal/hostile/poison/bees/short
+	desc = "These bees seem unstable and won't survive for long."
+
+/mob/living/simple_animal/hostile/poison/bees/short/Initialize(mapload, timetolive=50 SECONDS)
+	. = ..()
+	addtimer(CALLBACK(src, .proc/death), timetolive)

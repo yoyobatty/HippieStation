@@ -4,7 +4,7 @@
 #define RAD_AMOUNT_EXTREME 1000
 
 /datum/component/radioactive
-	dupe_mode = COMPONENT_DUPE_UNIQUE
+	dupe_mode = COMPONENT_DUPE_UNIQUE_PASSARGS
 
 	var/source
 
@@ -19,13 +19,12 @@
 	can_contaminate = _can_contaminate
 
 	if(istype(parent, /atom)) 
-		RegisterSignal(COMSIG_PARENT_EXAMINE, .proc/rad_examine)
+		RegisterSignal(parent, COMSIG_PARENT_EXAMINE, .proc/rad_examine)
 		if(istype(parent, /obj/item))
-			RegisterSignal(COMSIG_ITEM_ATTACK, .proc/rad_attack)
-			RegisterSignal(COMSIG_ITEM_ATTACK_OBJ, .proc/rad_attack)
+			RegisterSignal(parent, COMSIG_ITEM_ATTACK, .proc/rad_attack)
+			RegisterSignal(parent, COMSIG_ITEM_ATTACK_OBJ, .proc/rad_attack)
 	else
-		CRASH("Something that wasn't an atom was given /datum/component/radioactive")
-		return
+		return COMPONENT_INCOMPATIBLE
 
 	if(strength > RAD_MINIMUM_CONTAMINATION)
 		SSradiation.warn(src)
@@ -47,15 +46,18 @@
 	if(strength <= RAD_BACKGROUND_RADIATION)
 		return PROCESS_KILL
 
-/datum/component/radioactive/InheritComponent(datum/component/C, i_am_original)
+/datum/component/radioactive/InheritComponent(datum/component/C, i_am_original, list/arguments)
 	if(!i_am_original)
 		return
 	if(!hl3_release_date) // Permanently radioactive things don't get to grow stronger
 		return
-	var/datum/component/radioactive/other = C
-	strength = max(strength, other.strength)
+	if(C)
+		var/datum/component/radioactive/other = C
+		strength = max(strength, other.strength)
+	else
+		strength = max(strength, arguments[1])
 
-/datum/component/radioactive/proc/rad_examine(mob/user, atom/thing)
+/datum/component/radioactive/proc/rad_examine(datum/source, mob/user, atom/thing)
 	var/atom/master = parent
 	var/list/out = list()
 	if(get_dist(master, user) <= 1)
@@ -71,7 +73,7 @@
 			out += "."
 	to_chat(user, out.Join())
 
-/datum/component/radioactive/proc/rad_attack(atom/movable/target, mob/living/user)
+/datum/component/radioactive/proc/rad_attack(datum/source, atom/movable/target, mob/living/user)
 	radiation_pulse(parent, strength/20)
 	target.rad_act(strength/2)
 	strength -= strength / hl3_release_date

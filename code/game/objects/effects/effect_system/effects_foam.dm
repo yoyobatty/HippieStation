@@ -22,15 +22,57 @@
 	/turf/open/space/transit,
 	/turf/open/chasm,
 	/turf/open/lava))
+	var/slippery_foam = TRUE
 
+/obj/effect/particle_effect/foam/firefighting
+	name = "firefighting foam"
+	lifetime = 20 //doesn't last as long as normal foam
+	amount = 0 //no spread
+	slippery_foam = FALSE
+	var/absorbed_plasma = 0
+
+/obj/effect/particle_effect/foam/firefighting/process()
+	..()
+
+	var/turf/open/T = get_turf(src)
+	var/obj/effect/hotspot/hotspot = (locate(/obj/effect/hotspot) in T)
+	if(hotspot && istype(T) && T.air)
+		qdel(hotspot)
+		var/datum/gas_mixture/G = T.air
+		var/plas_amt = min(30,G.gases[/datum/gas/plasma][MOLES]) //Absorb some plasma
+		G.gases[/datum/gas/plasma][MOLES] -= plas_amt
+		absorbed_plasma += plas_amt
+		if(G.temperature > T20C)
+			G.temperature = max(G.temperature/2,T20C)
+		G.garbage_collect()
+		T.air_update_turf()
+
+/obj/effect/particle_effect/foam/firefighting/kill_foam()
+	STOP_PROCESSING(SSfastprocess, src)
+
+	if(absorbed_plasma)
+		var/obj/effect/decal/cleanable/plasma/P = (locate(/obj/effect/decal/cleanable/plasma) in get_turf(src))
+		if(!P)
+			P = new(loc)
+		P.reagents.add_reagent(/datum/reagent/stable_plasma, absorbed_plasma)
+
+	flick("[icon_state]-disolve", src)
+	QDEL_IN(src, 5)
+
+/obj/effect/particle_effect/foam/firefighting/foam_mob(mob/living/L)
+	if(!istype(L))
+		return
+	L.adjust_fire_stacks(-2)
+	L.ExtinguishMob()
+
+/obj/effect/particle_effect/foam/firefighting/temperature_expose(datum/gas_mixture/air, exposed_temperature, exposed_volume)
+	return
 
 /obj/effect/particle_effect/foam/metal
 	name = "aluminium foam"
 	metal = ALUMINUM_FOAM
 	icon_state = "mfoam"
-
-/obj/effect/particle_effect/foam/metal/MakeSlippery()
-	return
+	slippery_foam = FALSE
 
 /obj/effect/particle_effect/foam/metal/smart
 	name = "smart foam"
@@ -43,16 +85,19 @@
 	name = "resin foam"
 	metal = RESIN_FOAM
 
+/obj/effect/particle_effect/foam/long_life
+	lifetime = 150
 
 /obj/effect/particle_effect/foam/Initialize()
 	. = ..()
-	MakeSlippery()
 	create_reagents(1000) //limited by the size of the reagent holder anyway.
 	START_PROCESSING(SSfastprocess, src)
 	playsound(src, 'sound/effects/bubbles2.ogg', 80, 1, -3)
 
-/obj/effect/particle_effect/foam/proc/MakeSlippery()
-	AddComponent(/datum/component/slippery, 100)
+/obj/effect/particle_effect/foam/ComponentInitialize()
+	. = ..()
+	if(slippery_foam)
+		AddComponent(/datum/component/slippery, 100)
 
 /obj/effect/particle_effect/foam/Destroy()
 	STOP_PROCESSING(SSfastprocess, src)
@@ -76,7 +121,7 @@
 	if(metal)
 		var/turf/T = get_turf(src)
 		if(isspaceturf(T)) //Block up any exposed space
-			T.ChangeTurf(/turf/open/floor/plating/foam)
+			T.PlaceOnTop(/turf/open/floor/plating/foam, flags = CHANGETURF_INHERIT_AIR)
 		for(var/direction in GLOB.cardinals)
 			var/turf/cardinal_turf = get_step(T, direction)
 			if(get_area(cardinal_turf) != get_area(T)) //We're at an area boundary, so let's block off this turf!
@@ -170,6 +215,9 @@
 	effect_type = /obj/effect/particle_effect/foam/smart
 
 
+/datum/effect_system/foam_spread/long
+	effect_type = /obj/effect/particle_effect/foam/long_life
+
 /datum/effect_system/foam_spread/New()
 	..()
 	chemholder = new /obj()
@@ -189,23 +237,19 @@
 		location = get_turf(loca)
 
 	amount = round(sqrt(amt / 2), 1)
-	carry.copy_to(chemholder, 4*carry.total_volume) //The foam holds 4 times the total reagents volume for balance purposes.
+	carry.copy_to(chemholder, carry.total_volume)
 
 /datum/effect_system/foam_spread/metal/set_up(amt=5, loca, datum/reagents/carry = null, metaltype)
 	..()
 	metal = metaltype
 
 /datum/effect_system/foam_spread/start()
-	var/obj/effect/particle_effect/foam/foundfoam = locate() in location
-	if(foundfoam)//If there was already foam where we start, we add our foaminess to it.
-		foundfoam.amount += amount
-	else
-		var/obj/effect/particle_effect/foam/F = new effect_type(location)
-		var/foamcolor = mix_color_from_reagents(chemholder.reagents.reagent_list)
-		chemholder.reagents.copy_to(F, chemholder.reagents.total_volume/amount)
-		F.add_atom_colour(foamcolor, FIXED_COLOUR_PRIORITY)
-		F.amount = amount
-		F.metal = metal
+	var/obj/effect/particle_effect/foam/F = new effect_type(location)
+	var/foamcolor = mix_color_from_reagents(chemholder.reagents.reagent_list)
+	chemholder.reagents.copy_to(F, chemholder.reagents.total_volume/amount)
+	F.add_atom_colour(foamcolor, FIXED_COLOUR_PRIORITY)
+	F.amount = amount
+	F.metal = metal
 
 
 //////////////////////////////////////////////////////////
@@ -224,28 +268,25 @@
 	max_integrity = 20
 	CanAtmosPass = ATMOS_PASS_DENSITY
 
-/obj/structure/foamedmetal/New()
-	..()
+/obj/structure/foamedmetal/Initialize()
+	. = ..()
 	air_update_turf(1)
-
-
-/obj/structure/foamedmetal/Destroy()
-	density = FALSE
-	air_update_turf(1)
-	return ..()
 
 /obj/structure/foamedmetal/Move()
 	var/turf/T = loc
-	..()
+	. = ..()
 	move_update_air(T)
 
 /obj/structure/foamedmetal/attack_paw(mob/user)
-	attack_hand(user)
+	return attack_hand(user)
 
 /obj/structure/foamedmetal/play_attack_sound(damage_amount, damage_type = BRUTE, damage_flag = 0)
 	playsound(src.loc, 'sound/weapons/tap.ogg', 100, 1)
 
 /obj/structure/foamedmetal/attack_hand(mob/user)
+	. = ..()
+	if(.)
+		return
 	user.changeNext_move(CLICK_CD_MELEE)
 	user.do_attack_animation(src, ATTACK_EFFECT_PUNCH)
 	to_chat(user, "<span class='warning'>You hit [src] but bounce off it!</span>")

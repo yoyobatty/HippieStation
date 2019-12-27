@@ -21,23 +21,23 @@
 	cut_overlays()
 
 /obj/item/target/Move()
-	..()
+	. = ..()
 	if(pinnedLoc)
-		pinnedLoc.loc = loc
+		pinnedLoc.forceMove(loc)
 
-/obj/item/target/attackby(obj/item/W, mob/user, params)
-	if(istype(W, /obj/item/weldingtool))
-		var/obj/item/weldingtool/WT = W
-		if(WT.remove_fuel(0, user))
-			removeOverlays()
-			to_chat(user, "<span class='notice'>You slice off [src]'s uneven chunks of aluminium and scorch marks.</span>")
-	else
-		return ..()
+/obj/item/target/welder_act(mob/living/user, obj/item/I)
+	..()
+	if(I.use_tool(src, user, 0, volume=40))
+		removeOverlays()
+		to_chat(user, "<span class='notice'>You slice off [src]'s uneven chunks of aluminium and scorch marks.</span>")
+	return TRUE
 
 /obj/item/target/attack_hand(mob/user)
+	. = ..()
+	if(.)
+		return
 	if(pinnedLoc)
 		pinnedLoc.removeTarget(user)
-	..()
 
 /obj/item/target/syndicate
 	icon_state = "target_s"
@@ -61,7 +61,7 @@
 #define DECALTYPE_BULLET 2
 
 /obj/item/target/clown/bullet_act(obj/item/projectile/P)
-	..()
+	. = ..()
 	playsound(src.loc, 'sound/items/bikehorn.ogg', 50, 1)
 
 /obj/item/target/bullet_act(obj/item/projectile/P)
@@ -90,8 +90,8 @@
 		else
 			bullet_hole.icon_state = "dent"
 		add_overlay(bullet_hole)
-		return
-	return -1
+		return BULLET_ACT_HIT
+	return BULLET_ACT_FORCE_PIERCE
 
 #undef DECALTYPE_SCORCH
 #undef DECALTYPE_BULLET

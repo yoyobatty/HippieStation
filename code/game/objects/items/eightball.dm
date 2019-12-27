@@ -11,8 +11,8 @@
 	var/shaking = FALSE
 	var/on_cooldown = FALSE
 
-	var/shake_time = 150
-	var/cooldown_time = 1800
+	var/shake_time = 50
+	var/cooldown_time = 100
 
 	var/static/list/possible_answers = list(
 		"It is certain",
@@ -95,6 +95,8 @@
 // except it actually ASKS THE DEAD (wooooo)
 
 /obj/item/toy/eightball/haunted
+	shake_time = 150
+	cooldown_time = 1800
 	flags_1 = HEAR_1
 	var/last_message
 	var/selected_message
@@ -112,20 +114,23 @@
 /obj/item/toy/eightball/haunted/MakeHaunted()
 	return FALSE
 
+//ATTACK GHOST IGNORING PARENT RETURN VALUE
 /obj/item/toy/eightball/haunted/attack_ghost(mob/user)
 	if(!shaking)
 		to_chat(user, "<span class='warning'>[src] is not currently being shaken.</span>")
 		return
 	interact(user)
+	return ..()
 
 /obj/item/toy/eightball/haunted/Hear(message, atom/movable/speaker, message_langs, raw_message, radio_freq, spans, message_mode)
+	. = ..()
 	last_message = raw_message
 
 /obj/item/toy/eightball/haunted/start_shaking(mob/user)
 	// notify ghosts that someone's shaking a haunted eightball
 	// and inform them of the message, (hopefully a yes/no question)
 	selected_message = last_message
-	notify_ghosts("[user] is shaking [src], hoping to get an answer to \"[selected_message]\"", source=src, enter_link="<a href=?src=[REF(src)];interact=1>(Click to help)</a>", action=NOTIFY_ATTACK)
+	notify_ghosts("[user] is shaking [src], hoping to get an answer to \"[selected_message]\"", source=src, enter_link="<a href=?src=[REF(src)];interact=1>(Click to help)</a>", action=NOTIFY_ATTACK, header = "Magic eightball")
 
 /obj/item/toy/eightball/haunted/Topic(href, href_list)
 	if(href_list["interact"])
@@ -201,7 +206,7 @@
 	switch(action)
 		if("vote")
 			var/selected_answer = params["answer"]
-			if(!selected_answer in possible_answers)
+			if(!(selected_answer in possible_answers))
 				return
 			else
 				votes[user.ckey] = selected_answer

@@ -80,14 +80,14 @@
 		message_admins("SWF is still pissed, sending another wizard - [max_mages - mages_made] left.")
 		for(var/mob/dead/observer/G in GLOB.player_list)
 			if(G.client && !G.client.holder && !G.client.is_afk() && (ROLE_WIZARD in G.client.prefs.be_special))
-				if(!jobban_isbanned(G, ROLE_WIZARD) && !jobban_isbanned(G, "Syndicate"))
+				if(!is_banned_from(G.ckey, list(ROLE_WIZARD, ROLE_SYNDICATE)))
 					if(age_check(G.client))
 						candidates += G
 		if(!candidates.len)
 			message_admins("No applicable ghosts for the next ragin' mage, asking ghosts instead.")
 			var/time_passed = world.time
 			for(var/mob/dead/observer/G in GLOB.player_list)
-				if(!jobban_isbanned(G, "wizard") && !jobban_isbanned(G, "Syndicate"))
+				if(!is_banned_from(G.ckey, list(ROLE_WIZARD, ROLE_SYNDICATE)))
 					if(age_check(G.client))
 						spawn(0)
 							switch(alert(G, "Do you wish to be considered for the position of Space Wizard Foundation 'diplomat'?","Please answer in 30 seconds!","Yes","No"))
@@ -117,12 +117,6 @@
 			new_character.mind.make_Wizard()
 			making_mage = 0
 			return 1
-
-/datum/game_mode/wizard/raginmages/declare_completion()
-	if(finished)
-		SSticker.mode_result = "loss - wizard killed"
-		to_chat(world, "<FONT size=3><B>The crew has managed to hold off the wizard attack! The Space Wizards Federation has been taught a lesson they will not soon forget!</B></FONT>")
-	..(1)
 
 /datum/game_mode/wizard/raginmages/proc/makeBody(mob/dead/observer/G_found) // Uses stripped down and bastardized code from respawn character
 	if(!G_found || !G_found.key)

@@ -17,13 +17,9 @@ DROP TABLE IF EXISTS `admin`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `admin` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
   `ckey` varchar(32) NOT NULL,
-  `rank` varchar(32) NOT NULL DEFAULT 'Administrator',
-  `level` int(2) NOT NULL DEFAULT '0',
-  `flags` int(16) NOT NULL DEFAULT '0',
-  `email` varchar(45) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `rank` varchar(32) NOT NULL,
+  PRIMARY KEY (`ckey`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -37,9 +33,12 @@ DROP TABLE IF EXISTS `admin_log`;
 CREATE TABLE `admin_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `datetime` datetime NOT NULL,
+  `round_id` int(11) unsigned NOT NULL,
   `adminckey` varchar(32) NOT NULL,
-  `adminip` varchar(18) NOT NULL,
-  `log` text NOT NULL,
+  `adminip` int(10) unsigned NOT NULL,
+  `operation` enum('add admin','remove admin','change admin rank','add rank','remove rank','change rank flags') NOT NULL,
+  `target` varchar(32) NOT NULL,
+  `log` varchar(1000) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -52,11 +51,12 @@ DROP TABLE IF EXISTS `admin_ranks`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `admin_ranks` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `rank` varchar(40) NOT NULL,
-  `flags` int(16) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=latin1;
+  `rank` varchar(32) NOT NULL,
+  `flags` smallint(5) unsigned NOT NULL,
+  `exclude_flags` smallint(5) unsigned NOT NULL,
+  `can_edit_flags` smallint(5) unsigned NOT NULL,
+  PRIMARY KEY (`rank`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -67,34 +67,33 @@ DROP TABLE IF EXISTS `ban`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `ban` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `bantime` datetime NOT NULL,
-  `server_ip` int(10) unsigned NOT NULL,
-  `server_port` smallint(5) unsigned NOT NULL,
-  `round_id` int(11) NOT NULL,
-  `bantype` enum('PERMABAN','TEMPBAN','JOB_PERMABAN','JOB_TEMPBAN','ADMIN_PERMABAN','ADMIN_TEMPBAN') NOT NULL,
-  `reason` varchar(2048) NOT NULL,
-  `job` varchar(32) DEFAULT NULL,
-  `duration` int(11) NOT NULL,
-  `expiration_time` datetime NOT NULL,
-  `ckey` varchar(32) NOT NULL,
-  `computerid` varchar(32) NOT NULL,
-  `ip` int(10) unsigned NOT NULL,
-  `a_ckey` varchar(32) NOT NULL,
-  `a_computerid` varchar(32) NOT NULL,
-  `a_ip` int(10) unsigned NOT NULL,
-  `who` varchar(2048) NOT NULL,
-  `adminwho` varchar(2048) NOT NULL,
-  `edits` text,
-  `unbanned` tinyint(3) unsigned DEFAULT NULL,
-  `unbanned_datetime` datetime DEFAULT NULL,
-  `unbanned_ckey` varchar(32) DEFAULT NULL,
-  `unbanned_computerid` varchar(32) DEFAULT NULL,
-  `unbanned_ip` int(10) unsigned DEFAULT NULL,
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `bantime` DATETIME NOT NULL,
+  `server_ip` INT(10) UNSIGNED NOT NULL,
+  `server_port` SMALLINT(5) UNSIGNED NOT NULL,
+  `round_id` INT(11) UNSIGNED NOT NULL,
+  `role` VARCHAR(32) NULL DEFAULT NULL,
+  `expiration_time` DATETIME NULL DEFAULT NULL,
+  `applies_to_admins` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+  `reason` VARCHAR(2048) NOT NULL,
+  `ckey` VARCHAR(32) NULL DEFAULT NULL,
+  `ip` INT(10) UNSIGNED NULL DEFAULT NULL,
+  `computerid` VARCHAR(32) NULL DEFAULT NULL,
+  `a_ckey` VARCHAR(32) NOT NULL,
+  `a_ip` INT(10) UNSIGNED NOT NULL,
+  `a_computerid` VARCHAR(32) NOT NULL,
+  `who` VARCHAR(2048) NOT NULL,
+  `adminwho` VARCHAR(2048) NOT NULL,
+  `edits` TEXT NULL DEFAULT NULL,
+  `unbanned_datetime` DATETIME NULL DEFAULT NULL,
+  `unbanned_ckey` VARCHAR(32) NULL DEFAULT NULL,
+  `unbanned_ip` INT(10) UNSIGNED NULL DEFAULT NULL,
+  `unbanned_computerid` VARCHAR(32) NULL DEFAULT NULL,
+  `unbanned_round_id` INT(11) UNSIGNED NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_ban_checkban` (`ckey`,`bantype`,`expiration_time`,`unbanned`,`job`),
-  KEY `idx_ban_isbanned` (`ckey`,`ip`,`computerid`,`bantype`,`expiration_time`,`unbanned`),
-  KEY `idx_ban_count` (`id`,`a_ckey`,`bantype`,`expiration_time`,`unbanned`)
+  KEY `idx_ban_isbanned` (`ckey`,`role`,`unbanned_datetime`,`expiration_time`),
+  KEY `idx_ban_isbanned_details` (`ckey`,`ip`,`computerid`,`role`,`unbanned_datetime`,`expiration_time`),
+  KEY `idx_ban_count` (`bantime`,`a_ckey`,`applies_to_admins`,`unbanned_datetime`,`expiration_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -163,12 +162,13 @@ DROP TABLE IF EXISTS `feedback`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `feedback` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `time` datetime NOT NULL,
-  `round_id` int(8) NOT NULL,
-  `var_name` varchar(32) NOT NULL,
-  `var_value` int(16) DEFAULT NULL,
-  `details` text,
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `datetime` datetime NOT NULL,
+  `round_id` int(11) unsigned NOT NULL,
+  `key_name` varchar(32) NOT NULL,
+  `key_type` enum('text', 'amount', 'tally', 'nested tally', 'associative') NOT NULL,
+  `version` tinyint(3) unsigned NOT NULL,
+  `json` json NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -252,6 +252,8 @@ CREATE TABLE `messages` (
   `server_port` smallint(5) unsigned NOT NULL,
   `round_id` int(11) unsigned NOT NULL,
   `secret` tinyint(1) unsigned NOT NULL,
+  `expire_timestamp` datetime DEFAULT NULL,
+  `severity` enum('high','medium','minor','none') DEFAULT NULL,
   `lasteditor` varchar(32) DEFAULT NULL,
   `edits` text,
   `deleted` tinyint(1) unsigned NOT NULL DEFAULT '0',
@@ -270,12 +272,34 @@ DROP TABLE IF EXISTS `role_time`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 
-CREATE TABLE `role_time` 
+CREATE TABLE `role_time`
 ( `ckey` VARCHAR(32) NOT NULL ,
  `job` VARCHAR(32) NOT NULL ,
  `minutes` INT UNSIGNED NOT NULL,
- PRIMARY KEY (`ckey`, `job`) 
+ PRIMARY KEY (`ckey`, `job`)
  ) ENGINE = InnoDB;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `role_time`
+--
+
+DROP TABLE IF EXISTS `role_time_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+
+CREATE TABLE IF NOT EXISTS `role_time_log` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `ckey` varchar(32) NOT NULL,
+  `job` varchar(128) NOT NULL,
+  `delta` int(11) NOT NULL,
+  `datetime` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `ckey` (`ckey`),
+  KEY `job` (`job`),
+  KEY `datetime` (`datetime`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `player`
@@ -286,6 +310,7 @@ DROP TABLE IF EXISTS `player`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `player` (
   `ckey` varchar(32) NOT NULL,
+  `byond_key` varchar(32) DEFAULT NULL,
   `firstseen` datetime NOT NULL,
   `firstseen_round_id` int(11) unsigned NOT NULL,
   `lastseen` datetime NOT NULL,
@@ -295,6 +320,7 @@ CREATE TABLE `player` (
   `lastadminrank` varchar(32) NOT NULL DEFAULT 'Player',
   `accountjoindate` DATE DEFAULT NULL,
   `flags` smallint(5) unsigned DEFAULT '0' NOT NULL,
+  `discord_id` BIGINT(20) NULL DEFAULT NULL,
   PRIMARY KEY (`ckey`),
   KEY `idx_player_cid_ckey` (`computerid`,`ckey`),
   KEY `idx_player_ip_ckey` (`ip`,`ckey`)
@@ -398,7 +424,9 @@ DROP TABLE IF EXISTS `round`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `round` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
-  `start_datetime` DATETIME NOT NULL,
+  `initialize_datetime` DATETIME NOT NULL,
+  `start_datetime` DATETIME NULL,
+  `shutdown_datetime` DATETIME NULL,
   `end_datetime` DATETIME NULL,
   `server_ip` INT(10) UNSIGNED NOT NULL,
   `server_port` SMALLINT(5) UNSIGNED NOT NULL,
@@ -424,6 +452,67 @@ CREATE TABLE `schema_revision` (
   `date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`major`, `minor`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+DELIMITER $$
+CREATE TRIGGER `role_timeTlogupdate` AFTER UPDATE ON `role_time` FOR EACH ROW BEGIN INSERT into role_time_log (ckey, job, delta) VALUES (NEW.CKEY, NEW.job, NEW.minutes-OLD.minutes);
+END
+$$
+CREATE TRIGGER `role_timeTloginsert` AFTER INSERT ON `role_time` FOR EACH ROW BEGIN INSERT into role_time_log (ckey, job, delta) VALUES (NEW.ckey, NEW.job, NEW.minutes);
+END
+$$
+CREATE TRIGGER `role_timeTlogdelete` AFTER DELETE ON `role_time` FOR EACH ROW BEGIN INSERT into role_time_log (ckey, job, delta) VALUES (OLD.ckey, OLD.job, 0-OLD.minutes);
+END
+$$
+DELIMITER ;
+
+--
+-- Table structure for table `stickyban`
+--
+DROP TABLE IF EXISTS `stickyban`;
+CREATE TABLE `stickyban` (
+	`ckey` VARCHAR(32) NOT NULL,
+	`reason` VARCHAR(2048) NOT NULL,
+	`banning_admin` VARCHAR(32) NOT NULL,
+	`datetime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	PRIMARY KEY (`ckey`)
+) ENGINE=InnoDB;
+
+--
+-- Table structure for table `stickyban_matched_ckey`
+--
+DROP TABLE IF EXISTS `stickyban_matched_ckey`;
+CREATE TABLE `stickyban_matched_ckey` (
+	`stickyban` VARCHAR(32) NOT NULL,
+	`matched_ckey` VARCHAR(32) NOT NULL,
+	`first_matched` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	`last_matched` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	`exempt` TINYINT(1) NOT NULL DEFAULT '0',
+	PRIMARY KEY (`stickyban`, `matched_ckey`)
+) ENGINE=InnoDB;
+
+--
+-- Table structure for table `stickyban_matched_ip`
+--
+DROP TABLE IF EXISTS `stickyban_matched_ip`;
+CREATE TABLE `stickyban_matched_ip` (
+	`stickyban` VARCHAR(32) NOT NULL,
+	`matched_ip` INT UNSIGNED NOT NULL,
+	`first_matched` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	`last_matched` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	PRIMARY KEY (`stickyban`, `matched_ip`)
+) ENGINE=InnoDB;
+
+--
+-- Table structure for table `stickyban_matched_cid`
+--
+DROP TABLE IF EXISTS `stickyban_matched_cid`;
+CREATE TABLE `stickyban_matched_cid` (
+	`stickyban` VARCHAR(32) NOT NULL,
+	`matched_cid` VARCHAR(32) NOT NULL,
+	`first_matched` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	`last_matched` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	PRIMARY KEY (`stickyban`, `matched_cid`)
+) ENGINE=InnoDB;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

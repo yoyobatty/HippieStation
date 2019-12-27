@@ -4,39 +4,39 @@
 // Return the item currently in the slot ID
 /mob/living/carbon/human/get_item_by_slot(slot_id)
 	switch(slot_id)
-		if(slot_back)
+		if(SLOT_BACK)
 			return back
-		if(slot_wear_mask)
+		if(SLOT_WEAR_MASK)
 			return wear_mask
-		if(slot_neck)
+		if(SLOT_NECK)
 			return wear_neck
-		if(slot_handcuffed)
+		if(SLOT_HANDCUFFED)
 			return handcuffed
-		if(slot_legcuffed)
+		if(SLOT_LEGCUFFED)
 			return legcuffed
-		if(slot_belt)
+		if(SLOT_BELT)
 			return belt
-		if(slot_wear_id)
+		if(SLOT_WEAR_ID)
 			return wear_id
-		if(slot_ears)
+		if(SLOT_EARS)
 			return ears
-		if(slot_glasses)
+		if(SLOT_GLASSES)
 			return glasses
-		if(slot_gloves)
+		if(SLOT_GLOVES)
 			return gloves
-		if(slot_head)
+		if(SLOT_HEAD)
 			return head
-		if(slot_shoes)
+		if(SLOT_SHOES)
 			return shoes
-		if(slot_wear_suit)
+		if(SLOT_WEAR_SUIT)
 			return wear_suit
-		if(slot_w_uniform)
+		if(SLOT_W_UNIFORM)
 			return w_uniform
-		if(slot_l_store)
+		if(SLOT_L_STORE)
 			return l_store
-		if(slot_r_store)
+		if(SLOT_R_STORE)
 			return r_store
-		if(slot_s_store)
+		if(SLOT_S_STORE)
 			return s_store
 	return null
 
@@ -84,17 +84,17 @@
 
 	var/not_handled = FALSE //Added in case we make this type path deeper one day
 	switch(slot)
-		if(slot_belt)
+		if(SLOT_BELT)
 			belt = I
 			update_inv_belt()
-		if(slot_wear_id)
+		if(SLOT_WEAR_ID)
 			wear_id = I
 			sec_hud_set_ID()
 			update_inv_wear_id()
-		if(slot_ears)
+		if(SLOT_EARS)
 			ears = I
 			update_inv_ears()
-		if(slot_glasses)
+		if(SLOT_GLASSES)
 			glasses = I
 			var/obj/item/clothing/glasses/G = I
 			if(G.glass_colour_type)
@@ -103,16 +103,17 @@
 				update_tint()
 			if(G.vision_correction)
 				clear_fullscreen("nearsighted")
+				clear_fullscreen("eye_damage")
 			if(G.vision_flags || G.darkness_view || G.invis_override || G.invis_view || !isnull(G.lighting_alpha))
 				update_sight()
 			update_inv_glasses()
-		if(slot_gloves)
+		if(SLOT_GLOVES)
 			gloves = I
 			update_inv_gloves()
-		if(slot_shoes)
+		if(SLOT_SHOES)
 			shoes = I
 			update_inv_shoes()
-		if(slot_wear_suit)
+		if(SLOT_WEAR_SUIT)
 			wear_suit = I
 			if(I.flags_inv & HIDEJUMPSUIT)
 				update_inv_w_uniform()
@@ -120,17 +121,17 @@
 				stop_pulling() //can't pull if restrained
 				update_action_buttons_icon() //certain action buttons will no longer be usable.
 			update_inv_wear_suit()
-		if(slot_w_uniform)
+		if(SLOT_W_UNIFORM)
 			w_uniform = I
 			update_suit_sensors()
 			update_inv_w_uniform()
-		if(slot_l_store)
+		if(SLOT_L_STORE)
 			l_store = I
 			update_inv_pockets()
-		if(slot_r_store)
+		if(SLOT_R_STORE)
 			r_store = I
 			update_inv_pockets()
-		if(slot_s_store)
+		if(SLOT_S_STORE)
 			s_store = I
 			update_inv_s_store()
 		else
@@ -186,8 +187,9 @@
 		if(G.tint)
 			update_tint()
 		if(G.vision_correction)
-			if(disabilities & NEARSIGHT)
+			if(HAS_TRAIT(src, TRAIT_NEARSIGHT))
 				overlay_fullscreen("nearsighted", /obj/screen/fullscreen/impaired, 1)
+			adjust_eye_damage(0)
 		if(G.vision_flags || G.darkness_view || G.invis_override || G.invis_view || !isnull(G.lighting_alpha))
 			update_sight()
 		if(!QDELETED(src))
@@ -222,13 +224,13 @@
 		if(!QDELETED(src))
 			update_inv_s_store()
 
-/mob/living/carbon/human/wear_mask_update(obj/item/clothing/C, toggle_off = 1)
-	if((C.flags_inv & (HIDEHAIR|HIDEFACIALHAIR)) || (initial(C.flags_inv) & (HIDEHAIR|HIDEFACIALHAIR)))
+/mob/living/carbon/human/wear_mask_update(obj/item/I, toggle_off = 1)
+	if((I.flags_inv & (HIDEHAIR|HIDEFACIALHAIR)) || (initial(I.flags_inv) & (HIDEHAIR|HIDEFACIALHAIR)))
 		update_hair()
 	if(toggle_off && internal && !getorganslot(ORGAN_SLOT_BREATHING_TUBE))
 		update_internals_hud_icon(0)
 		internal = null
-	if(C.flags_inv & HIDEEYES)
+	if(I.flags_inv & HIDEEYES)
 		update_inv_glasses()
 	sec_hud_set_security_status()
 	..()
@@ -268,3 +270,65 @@
 		qdel(slot)
 	for(var/obj/item/I in held_items)
 		qdel(I)
+
+/mob/living/carbon/human/proc/smart_equipbag() // take most recent item out of bag or place held item in bag
+	if(incapacitated())
+		return
+	var/obj/item/thing = get_active_held_item()
+	var/obj/item/equipped_back = get_item_by_slot(SLOT_BACK)
+	if(!equipped_back) // We also let you equip a backpack like this
+		if(!thing)
+			to_chat(src, "<span class='warning'>You have no backpack to take something out of!</span>")
+			return
+		if(equip_to_slot_if_possible(thing, SLOT_BACK))
+			update_inv_hands()
+		return
+	if(!SEND_SIGNAL(equipped_back, COMSIG_CONTAINS_STORAGE)) // not a storage item
+		if(!thing)
+			equipped_back.attack_hand(src)
+		else
+			to_chat(src, "<span class='warning'>You can't fit anything in!</span>")
+		return
+	if(thing) // put thing in backpack
+		if(!SEND_SIGNAL(equipped_back, COMSIG_TRY_STORAGE_INSERT, thing, src))
+			to_chat(src, "<span class='warning'>You can't fit anything in!</span>")
+		return
+	if(!equipped_back.contents.len) // nothing to take out
+		to_chat(src, "<span class='warning'>There's nothing in your backpack to take out!</span>")
+		return
+	var/obj/item/stored = equipped_back.contents[equipped_back.contents.len]
+	if(!stored || stored.on_found(src))
+		return
+	stored.attack_hand(src) // take out thing from backpack
+	return
+	
+/mob/living/carbon/human/proc/smart_equipbelt() // put held thing in belt or take most recent item out of belt
+	if(incapacitated())
+		return
+	var/obj/item/thing = get_active_held_item()
+	var/obj/item/equipped_belt = get_item_by_slot(SLOT_BELT)
+	if(!equipped_belt) // We also let you equip a belt like this
+		if(!thing)
+			to_chat(src, "<span class='warning'>You have no belt to take something out of!</span>")
+			return
+		if(equip_to_slot_if_possible(thing, SLOT_BELT))
+			update_inv_hands()
+		return
+	if(!SEND_SIGNAL(equipped_belt, COMSIG_CONTAINS_STORAGE)) // not a storage item
+		if(!thing)
+			equipped_belt.attack_hand(src)
+		else
+			to_chat(src, "<span class='warning'>You can't fit anything in!</span>")
+		return
+	if(thing) // put thing in belt
+		if(!SEND_SIGNAL(equipped_belt, COMSIG_TRY_STORAGE_INSERT, thing, src))
+			to_chat(src, "<span class='warning'>You can't fit anything in!</span>")
+		return
+	if(!equipped_belt.contents.len) // nothing to take out
+		to_chat(src, "<span class='warning'>There's nothing in your belt to take out!</span>")
+		return
+	var/obj/item/stored = equipped_belt.contents[equipped_belt.contents.len]
+	if(!stored || stored.on_found(src))
+		return
+	stored.attack_hand(src) // take out thing from belt
+	return

@@ -2,15 +2,17 @@
 	name = "microbomb implant"
 	desc = "And boom goes the weasel."
 	icon_state = "explosive"
-	origin_tech = "materials=2;combat=3;biotech=4;syndicate=4"
 	actions_types = list(/datum/action/item_action/explosive_implant)
-	// Explosive implant action is always availible.
+	// Explosive implant action is always available.
 	var/weak = 2
 	var/medium = 0.8
 	var/heavy = 0.4
 	var/delay = 7
 	var/popup = FALSE // is the DOUWANNABLOWUP window open?
 	var/active = FALSE
+
+/obj/item/implant/explosive/on_mob_death(mob/living/L, gibbed)
+	activate("death")
 
 /obj/item/implant/explosive/get_data()
 	var/dat = {"<b>Implant Specifications:</b><BR>
@@ -24,11 +26,8 @@
 				"}
 	return dat
 
-/obj/item/implant/explosive/trigger(emote, mob/source)
-	if(emote == "deathgasp")
-		activate("death")
-
 /obj/item/implant/explosive/activate(cause)
+	. = ..()
 	if(!cause || !imp_in || active)
 		return 0
 	if(cause == "action_button" && !popup)
@@ -43,8 +42,7 @@
 	to_chat(imp_in, "<span class='notice'>You activate your [name].</span>")
 	active = TRUE
 	var/turf/boomturf = get_turf(imp_in)
-	var/area/A = get_area(boomturf)
-	message_admins("[ADMIN_LOOKUPFLW(imp_in)] has activated their [name] at [A.name] [ADMIN_JMP(boomturf)], with cause of [cause].")
+	message_admins("[ADMIN_LOOKUPFLW(imp_in)] has activated their [name] at [ADMIN_VERBOSEJMP(boomturf)], with cause of [cause].")
 //If the delay is short, just blow up already jeez
 	if(delay <= 7)
 		explosion(src,heavy,medium,weak,weak, flame_range = weak)
@@ -54,7 +52,7 @@
 		return
 	timed_explosion()
 
-/obj/item/implant/explosive/implant(mob/living/target)
+/obj/item/implant/explosive/implant(mob/living/target, mob/user, silent = FALSE, force = FALSE)
 	for(var/X in target.implants)
 		if(istype(X, type))
 			var/obj/item/implant/explosive/imp_e = X
@@ -73,7 +71,7 @@
 	sleep(delay*0.25)
 	if(imp_in && !imp_in.stat)
 		imp_in.visible_message("<span class='warning'>[imp_in] doubles over in pain!</span>")
-		imp_in.Knockdown(140)
+		imp_in.Paralyze(140)
 	playsound(loc, 'sound/items/timer.ogg', 30, 0)
 	sleep(delay*0.25)
 	playsound(loc, 'sound/items/timer.ogg', 30, 0)
@@ -89,13 +87,12 @@
 	name = "macrobomb implant"
 	desc = "And boom goes the weasel. And everything else nearby."
 	icon_state = "explosive"
-	origin_tech = "materials=3;combat=5;biotech=4;syndicate=5"
 	weak = 16
 	medium = 8
 	heavy = 4
 	delay = 70
 
-/obj/item/implant/explosive/macro/implant(mob/living/target)
+/obj/item/implant/explosive/macro/implant(mob/living/target, mob/user, silent = FALSE, force = FALSE)
 	for(var/X in target.implants)
 		if(istype(X, type))
 			return 0
@@ -114,10 +111,14 @@
 
 
 /obj/item/implanter/explosive
-	name = "implanter (explosive)"
+	name = "implanter (microbomb)"
 	imp_type = /obj/item/implant/explosive
 
 /obj/item/implantcase/explosive
 	name = "implant case - 'Explosive'"
 	desc = "A glass case containing an explosive implant."
 	imp_type = /obj/item/implant/explosive
+
+/obj/item/implanter/explosive_macro
+	name = "implanter (macrobomb)"
+	imp_type = /obj/item/implant/explosive/macro

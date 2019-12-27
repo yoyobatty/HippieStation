@@ -3,11 +3,11 @@
 	desc = "Are you sure eating this is a good idea?"
 	icon = 'hippiestation/icons/obj/chemical.dmi'
 	icon_state = "chembar"
-	unique_rename = TRUE
+	obj_flags = UNIQUE_RENAME
 	var/reagent_type
 	foodtype = TOXIC
 	volume = 200
-	container_type = TRANSPARENT_1
+	reagent_flags = TRANSPARENT
 	bitesize = 5
 
 /obj/item/reagent_containers/food/snacks/solid_reagent/Initialize()

@@ -43,7 +43,7 @@
 	var/obj/item/organ/butt/B
 
 /obj/item/staplegun/Initialize()
-	..()
+	.=..()
 	update_icon()
 
 /obj/item/staplegun/examine(mob/user)
@@ -91,7 +91,7 @@
 				H.try_to_embed(S,O)
 			user.visible_message("<span class='danger'>[user] has stapled [target] in the [O]!</span>", "<span class='userdanger'>You staple [target]!</span>")
 			H.update_damage_overlays()
-			add_logs(user, H, "stapled", src)
+			log_combat(user, H, "stapled", src)
 		else
 			visible_message("<span class='danger'>[user] has attempted to staple [target] in the [O]!</span>")
 	else
@@ -114,7 +114,7 @@
 			var/turf/T = target
 			playsound(T, 'hippiestation/sound/weapons/staplegun.ogg', 50, 1)
 			user.visible_message("<span class='danger'>[user] has stapled [P] into the [target]!</span>")
-			P.loc = T
+			P.forceMove(T)
 			P.anchored = TRUE //like why would you want to pull this around
 			P = null
 			ammo -= 1
@@ -123,11 +123,11 @@
 /obj/item/staplegun/attack_self(mob/user)
 	if(istype(P))
 		to_chat(user, "<span class='notice'>You take out \the [P] out of \the [src].")
-		P.loc = user.loc
+		P.forceMove(user.loc)
 		P = null
 	else if(istype(B))
 		to_chat(user, "<span class='notice'>You take out \the [B] out of \the [src].")
-		B.loc = user.loc
+		B.forceMove(user.loc)
 		B = null
 	else if(ammo)
 		to_chat(user, "<span class='notice'>You take out the [ammo > 1 ? "staples" : "staple"] out of \the [src].")
@@ -155,7 +155,7 @@
 	if(istype(I, /obj/item/paper))
 		if(!istype(P))
 			user.dropItemToGround(user.get_active_held_item())
-			I.loc = src
+			I.forceMove(src)
 			P = I
 			to_chat(user, "<span class='notice'>You put \the [P] in \the [src].")
 		else
@@ -164,7 +164,7 @@
 		if(!istype(P))
 			if(!istype(B))
 				user.dropItemToGround(user.get_active_held_item())
-				I.loc = src
+				I.forceMove(src)
 				B = I
 				to_chat(user, "<span class='notice'>You put \the [B] in \the [src].</span>")
 			else
@@ -243,7 +243,7 @@
 					"<span class='italics'>You hear a ratchet.</span>")
 
 /mob/living/carbon/human/proc/try_to_embed(var/obj/item/I, var/obj/item/bodypart/L, var/message = FALSE)
-	if(dna && (PIERCEIMMUNE in dna.species.species_traits))
+	if(dna && HAS_TRAIT(src, TRAIT_PIERCEIMMUNE))
 		return
 	throw_alert("embeddedobject", /obj/screen/alert/embeddedobject)
 	L.embedded_objects |= I

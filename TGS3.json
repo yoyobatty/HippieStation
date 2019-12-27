@@ -14,9 +14,10 @@
     ],
     "static_directories": [
       "config",
-      "data"
+      "data",
+      "tts_generator"
     ],
     "dlls": [
-      "libmysql.dll"
+      "libmariadb.dll"
     ]
   }

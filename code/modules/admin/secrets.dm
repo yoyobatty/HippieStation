@@ -8,12 +8,11 @@
 			<B>General Secrets</B><BR>
 			<BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=spawnselfdummy'>Spawn yourself as a Test Dummy</A><BR>
-			<A href='?src=[REF(src)];[HrefToken()];secrets=list_job_debug'>Show Job Debug</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=admin_log'>Admin Log</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=mentor_log'>Mentor Log</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=show_admins'>Show Admin List</A><BR>
 			<BR>
-			"}
+			"} // hippie -- adds spawnselfdummy and mentor_log
 
 	if(check_rights(R_ADMIN,0))
 		dat += {"
@@ -21,7 +20,6 @@
 			<BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=clear_virus'>Cure all diseases currently in existence</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=list_bombers'>Bombing List</A><BR>
-			<A href='?src=[REF(src)];[HrefToken()];secrets=check_antagonist'>Show current traitors and objectives</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=list_signalers'>Show last [length(GLOB.lastsignalers)] signalers</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=list_lawchanges'>Show last [length(GLOB.lawchanges)] law changes</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=showailaws'>Show AI Laws</A><BR>
@@ -33,6 +31,7 @@
 			<A href='?src=[REF(src)];[HrefToken()];secrets=tdomereset'>Reset Thunderdome to default state</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=set_name'>Rename Station Name</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=reset_name'>Reset Station Name</A><BR>
+			<A href='?src=[REF(src)];[HrefToken()];secrets=night_shift_set'>Set Night Shift Mode</A><BR>
 			<BR>
 			<B>Shuttles</B><BR>
 			<BR>
@@ -63,13 +62,18 @@
 			<A href='?src=[REF(src)];[HrefToken()];secrets=delayed_onlyone'>There can only be one! (40-second delay)</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=retardify'>Make all players retarded</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=eagles'>Egalitarian Station Mode</A><BR>
+			<A href='?src=[REF(src)];[HrefToken()];secrets=ancap'>Anarcho-Capitalist Station Mode</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=blackout'>Break all lights</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=whiteout'>Fix all lights</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=floorlava'>The floor is lava! (DANGEROUS: extremely lame)</A><BR>
+			<A href='?src=[REF(src)];[HrefToken()];secrets=customportal'>Spawn a custom portal storm</A><BR>
 			<BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=changebombcap'>Change bomb cap</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=masspurrbation'>Mass Purrbation</A><BR>
 			<A href='?src=[REF(src)];[HrefToken()];secrets=massremovepurrbation'>Mass Remove Purrbation</A><BR>
+			<BR>
+			<A href='?src=[REF(src)];[HrefToken()];secrets=winter;toggle=1'>Start Winter</A><BR>
+			<A href='?src=[REF(src)];[HrefToken()];secrets=winter;toggle=0'>Stop Winter</A><BR>
 			"}
 
 	dat += "<BR>"
@@ -95,8 +99,8 @@
 	var/datum/round_event/E
 	var/ok = 0
 	switch(item)
-		if("spawnselfdummy")
-			spawntestdummy(usr)
+		if("spawnselfdummy") // hippie start -- adds spawn as dummy command
+			spawntestdummy(usr) // hippie end
 		if("admin_log")
 			var/dat = "<B>Admin Log<HR></B>"
 			for(var/l in GLOB.admin_log)
@@ -105,19 +109,8 @@
 				dat += "No-one has done anything this round!"
 			usr << browse(dat, "window=admin_log")
 
-		if("mentor_log")
-			HippieMentorLogSecret()
-
-		if("list_job_debug")
-			var/dat = "<B>Job Debug info.</B><HR>"
-			for(var/line in SSjob.job_debug)
-				dat += "[line]<BR>"
-			dat+= "*******<BR><BR>"
-			for(var/datum/job/job in SSjob.occupations)
-				if(!job)
-					continue
-				dat += "job: [job.title], current_positions: [job.current_positions], total_positions: [job.total_positions] <BR>"
-			usr << browse(dat, "window=jobdebug;size=600x500")
+		if("mentor_log") // hippie start -- access mentor log
+			HippieMentorLogSecret() // hippie end
 
 		if("show_admins")
 			var/dat = "<B>Current admins:</B><HR>"
@@ -137,15 +130,15 @@
 			log_admin("[key_name(usr)] reset the thunderdome to default with delete_mobs==[delete_mobs].", 1)
 			message_admins("<span class='adminnotice'>[key_name_admin(usr)] reset the thunderdome to default with delete_mobs==[delete_mobs].</span>")
 
-			var/area/thunderdome = locate(/area/tdome/arena)
+			var/area/thunderdome = GLOB.areas_by_type[/area/tdome/arena]
 			if(delete_mobs == "Yes")
 				for(var/mob/living/mob in thunderdome)
 					qdel(mob) //Clear mobs
 			for(var/obj/obj in thunderdome)
-				if(!istype(obj, /obj/machinery/camera))
+				if(!istype(obj, /obj/machinery/camera) && !istype(obj, /obj/effect/abstract/proximity_checker))
 					qdel(obj) //Clear objects
 
-			var/area/template = locate(/area/tdome/arena_source)
+			var/area/template = GLOB.areas_by_type[/area/tdome/arena_source]
 			template.copy_contents_to(thunderdome)
 
 		if("clear_virus")
@@ -166,6 +159,23 @@
 			log_admin("[key_name(usr)] renamed the station to \"[new_name]\".")
 			message_admins("<span class='adminnotice'>[key_name_admin(usr)] renamed the station to: [new_name].</span>")
 			priority_announce("[command_name()] has renamed the station to \"[new_name]\".")
+		if("night_shift_set")
+			if(!check_rights(R_ADMIN))
+				return
+			var/val = alert(usr, "What do you want to set night shift to? This will override the automatic system until set to automatic again.", "Night Shift", "On", "Off", "Automatic")
+			switch(val)
+				if("Automatic")
+					if(CONFIG_GET(flag/enable_night_shifts))
+						SSnightshift.can_fire = TRUE
+						SSnightshift.fire()
+					else
+						SSnightshift.update_nightshift(FALSE, TRUE)
+				if("On")
+					SSnightshift.can_fire = FALSE
+					SSnightshift.update_nightshift(TRUE, TRUE)
+				if("Off")
+					SSnightshift.can_fire = FALSE
+					SSnightshift.update_nightshift(FALSE, TRUE)
 
 		if("reset_name")
 			if(!check_rights(R_ADMIN))
@@ -203,7 +213,7 @@
 		if("moveminingshuttle")
 			if(!check_rights(R_ADMIN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Send Mining Shuttle")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Send Mining Shuttle"))
 			if(!SSshuttle.toggleShuttle("mining","mining_home","mining_away"))
 				message_admins("[key_name_admin(usr)] moved mining shuttle")
 				log_admin("[key_name(usr)] moved the mining shuttle")
@@ -211,7 +221,7 @@
 		if("movelaborshuttle")
 			if(!check_rights(R_ADMIN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Send Labor Shuttle")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Send Labor Shuttle"))
 			if(!SSshuttle.toggleShuttle("laborcamp","laborcamp_home","laborcamp_away"))
 				message_admins("[key_name_admin(usr)] moved labor shuttle")
 				log_admin("[key_name(usr)] moved the labor shuttle")
@@ -219,7 +229,7 @@
 		if("moveferry")
 			if(!check_rights(R_ADMIN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Send CentCom Ferry")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Send CentCom Ferry"))
 			if(!SSshuttle.toggleShuttle("ferry","ferry_home","ferry_away"))
 				message_admins("[key_name_admin(usr)] moved the CentCom ferry")
 				log_admin("[key_name(usr)] moved the CentCom ferry")
@@ -231,7 +241,7 @@
 			if(A)
 				var/new_perma = !A.perma_docked
 				A.perma_docked = new_perma
-				SSblackbox.add_details("admin_toggle","Permadock Arrivals Shuttle|[new_perma]")
+				SSblackbox.record_feedback("nested tally", "admin_toggle", 1, list("Permadock Arrivals Shuttle", "[new_perma ? "Enabled" : "Disabled"]"))
 				message_admins("[key_name_admin(usr)] [new_perma ? "stopped" : "started"] the arrivals shuttle")
 				log_admin("[key_name(usr)] [new_perma ? "stopped" : "started"] the arrivals shuttle")
 			else
@@ -262,7 +272,7 @@
 				return
 			var/dat = "<B>Showing DNA from blood.</B><HR>"
 			dat += "<table cellspacing=5><tr><th>Name</th><th>DNA</th><th>Blood Type</th></tr>"
-			for(var/mob/living/carbon/human/H in GLOB.mob_list)
+			for(var/mob/living/carbon/human/H in GLOB.carbon_list)
 				if(H.ckey)
 					dat += "<tr><td>[H]</td><td>[H.dna.unique_enzymes]</td><td>[H.dna.blood_type]</td></tr>"
 			dat += "</table>"
@@ -272,7 +282,7 @@
 				return
 			var/dat = "<B>Showing Fingerprints.</B><HR>"
 			dat += "<table cellspacing=5><tr><th>Name</th><th>Fingerprints</th></tr>"
-			for(var/mob/living/carbon/human/H in GLOB.mob_list)
+			for(var/mob/living/carbon/human/H in GLOB.carbon_list)
 				if(H.ckey)
 					dat += "<tr><td>[H]</td><td>[md5(H.dna.uni_identity)]</td></tr>"
 			dat += "</table>"
@@ -281,8 +291,8 @@
 		if("monkey")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Monkeyize All Humans")
-			for(var/mob/living/carbon/human/H in GLOB.mob_list)
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Monkeyize All Humans"))
+			for(var/mob/living/carbon/human/H in GLOB.carbon_list)
 				spawn(0)
 					H.monkeyize()
 			ok = 1
@@ -292,23 +302,23 @@
 				return
 			var/result = input(usr, "Please choose a new species","Species") as null|anything in GLOB.species_list
 			if(result)
-				SSblackbox.add_details("admin_secrets_fun_used","Mass Species Change([result])")
+				SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Mass Species Change", "[result]"))
 				log_admin("[key_name(usr)] turned all humans into [result]", 1)
 				message_admins("\blue [key_name_admin(usr)] turned all humans into [result]")
 				var/newtype = GLOB.species_list[result]
-				for(var/mob/living/carbon/human/H in GLOB.mob_list)
+				for(var/mob/living/carbon/human/H in GLOB.carbon_list)
 					H.set_species(newtype)
 
 		if("tripleAI")
 			if(!check_rights(R_FUN))
 				return
 			usr.client.triple_ai()
-			SSblackbox.add_details("admin_secrets_fun_used","Triple AI")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Triple AI"))
 
 		if("power")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Power All APCs")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Power All APCs"))
 			log_admin("[key_name(usr)] made all areas powered", 1)
 			message_admins("<span class='adminnotice'>[key_name_admin(usr)] made all areas powered</span>")
 			power_restore()
@@ -316,7 +326,7 @@
 		if("unpower")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Depower All APCs")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Depower All APCs"))
 			log_admin("[key_name(usr)] made all areas unpowered", 1)
 			message_admins("<span class='adminnotice'>[key_name_admin(usr)] made all areas unpowered</span>")
 			power_failure()
@@ -324,7 +334,7 @@
 		if("quickpower")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Power All SMESs")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Power All SMESs"))
 			log_admin("[key_name(usr)] made all SMESs powered", 1)
 			message_admins("<span class='adminnotice'>[key_name_admin(usr)] made all SMESs powered</span>")
 			power_restore_quick()
@@ -338,7 +348,7 @@
 			var/objective = copytext(sanitize(input("Enter an objective")),1,MAX_MESSAGE_LEN)
 			if(!objective)
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Traitor All ([objective])")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Traitor All", "[objective]"))
 			for(var/mob/living/H in GLOB.player_list)
 				if(!(ishuman(H)||istype(H, /mob/living/silicon/)))
 					continue
@@ -346,7 +356,7 @@
 					continue
 				if(is_special_character(H))
 					continue
-				var/datum/antagonist/traitor/human/T = new(H.mind)
+				var/datum/antagonist/traitor/T = new()
 				T.give_objectives = FALSE
 				var/datum/objective/new_objective = new
 				new_objective.owner = H
@@ -359,7 +369,7 @@
 		if("changebombcap")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Bomb Cap")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Bomb Cap"))
 
 			var/newBombCap = input(usr,"What would you like the new bomb cap to be. (entered as the light damage range (the 3rd number in common (1,2,3) notation)) Must be above 4)", "New Bomb Cap", GLOB.MAX_EX_LIGHT_RANGE) as num|null
 			if (!CONFIG_SET(number/bombcap, newBombCap))
@@ -371,7 +381,7 @@
 		if("blackout")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Break All Lights")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Break All Lights"))
 			message_admins("[key_name_admin(usr)] broke all lights")
 			for(var/obj/machinery/light/L in GLOB.machines)
 				L.break_light_tube()
@@ -387,16 +397,18 @@
 
 			if(animetype == "Cancel" || droptype == "Cancel")
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Chinese Cartoons")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Chinese Cartoons"))
 			message_admins("[key_name_admin(usr)] made everything kawaii.")
-			for(var/mob/living/carbon/human/H in GLOB.mob_list)
+			for(var/mob/living/carbon/human/H in GLOB.carbon_list)
 				SEND_SOUND(H, sound('sound/ai/animes.ogg'))
 
 				if(H.dna.species.id == "human")
 					if(H.dna.features["tail_human"] == "None" || H.dna.features["ears"] == "None")
-						H.dna.features["tail_human"] = "Cat"
-						H.dna.features["ears"] = "Cat"
-					var/list/honorifics = list("[MALE]" = list("kun"), "[FEMALE]" = list("chan","tan"), "[NEUTER]" = list("san")) //John Robust -> Robust-kun
+						var/obj/item/organ/ears/cat/ears = new
+						var/obj/item/organ/tail/cat/tail = new
+						ears.Insert(H, drop_if_replaced=FALSE)
+						tail.Insert(H, drop_if_replaced=FALSE)
+					var/list/honorifics = list("[MALE]" = list("kun"), "[FEMALE]" = list("chan","tan"), "[NEUTER]" = list("san"), "[PLURAL]" = list("san")) //John Robust -> Robust-kun
 					var/list/names = splittext(H.real_name," ")
 					var/forename = names.len > 1 ? names[2] : names[1]
 					var/newname = "[forename]-[pick(honorifics["[H.gender]"])]"
@@ -407,28 +419,28 @@
 						var/obj/item/clothing/under/schoolgirl/I = new seifuku
 						var/olduniform = H.w_uniform
 						H.temporarilyRemoveItemFromInventory(H.w_uniform, TRUE, FALSE)
-						H.equip_to_slot_or_del(I, slot_w_uniform)
+						H.equip_to_slot_or_del(I, SLOT_W_UNIFORM)
 						qdel(olduniform)
 						if(droptype == "Yes")
-							I.flags_1 |= NODROP_1
+							ADD_TRAIT(I, TRAIT_NODROP, ADMIN_TRAIT)
 				else
 					to_chat(H, "You're not kawaii enough for this.")
 
 		if("whiteout")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Fix All Lights")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Fix All Lights"))
 			message_admins("[key_name_admin(usr)] fixed all lights")
 			for(var/obj/machinery/light/L in GLOB.machines)
 				L.fix()
 
 		if("floorlava")
-			SSweather.run_weather("the floor is lava")
+			SSweather.run_weather(/datum/weather/floor_is_lava)
 
 		if("virus")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Virus Outbreak")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Virus Outbreak"))
 			switch(alert("Do you want this to be a random disease or do you have something in mind?",,"Make Your Own","Random","Choose"))
 				if("Make Your Own")
 					AdminCreateVirus(usr.client)
@@ -443,26 +455,40 @@
 		if("retardify")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Mass Braindamage")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Mass Braindamage"))
 			for(var/mob/living/carbon/human/H in GLOB.player_list)
 				to_chat(H, "<span class='boldannounce'>You suddenly feel stupid.</span>")
-				H.setBrainLoss(60)
+				H.adjustBrainLoss(60, 80)
 			message_admins("[key_name_admin(usr)] made everybody retarded")
 
 		if("eagles")//SCRAW
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Egalitarian Station")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Egalitarian Station"))
 			for(var/obj/machinery/door/airlock/W in GLOB.machines)
-				if((W.z in GLOB.station_z_levels) && !istype(get_area(W), /area/bridge) && !istype(get_area(W), /area/crew_quarters) && !istype(get_area(W), /area/security/prison))
+				if(is_station_level(W.z) && !istype(get_area(W), /area/bridge) && !istype(get_area(W), /area/crew_quarters) && !istype(get_area(W), /area/security/prison))
 					W.req_access = list()
 			message_admins("[key_name_admin(usr)] activated Egalitarian Station mode")
-			priority_announce("CentCom airlock control override activated. Please take this time to get acquainted with your coworkers.", null, 'sound/ai/commandreport.ogg')
+			priority_announce("CentCom airlock control override activated. Please take this time to get acquainted with your coworkers.", null, 'hippiestation/sound/pyko/commandreport.ogg') // hippie -- pykoai
+
+		if("ancap")
+			if(!check_rights(R_FUN))
+				return
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Anarcho-capitalist Station"))
+			SSeconomy.full_ancap = !SSeconomy.full_ancap
+			message_admins("[key_name_admin(usr)] toggled Anarcho-capitalist mode")
+			if(SSeconomy.full_ancap)
+				priority_announce("The NAP is now in full effect.", null, 'hippiestation/sound/pyko/commandreport.ogg') // hippie -- pykoai
+			else
+				priority_announce("The NAP has been revoked.", null, 'hippiestation/sound/pyko/commandreport.ogg') // hippie -- pykoai
+
+
+
 
 		if("guns")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Summon Guns")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Summon Guns"))
 			var/survivor_probability = 0
 			switch(alert("Do you want this to create survivors antagonists?",,"No Antags","Some Antags","All Antags!"))
 				if("Some Antags")
@@ -470,12 +496,12 @@
 				if("All Antags!")
 					survivor_probability = 100
 
-			rightandwrong(0, usr, survivor_probability)
+			rightandwrong(SUMMON_GUNS, usr, survivor_probability)
 
 		if("magic")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Summon Magic")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Summon Magic"))
 			var/survivor_probability = 0
 			switch(alert("Do you want this to create survivors antagonists?",,"No Antags","Some Antags","All Antags!"))
 				if("Some Antags")
@@ -483,7 +509,7 @@
 				if("All Antags!")
 					survivor_probability = 100
 
-			rightandwrong(1, usr, survivor_probability)
+			rightandwrong(SUMMON_MAGIC, usr, survivor_probability)
 
 		if("events")
 			if(!check_rights(R_FUN))
@@ -491,23 +517,23 @@
 			if(!SSevents.wizardmode)
 				if(alert("Do you want to toggle summon events on?",,"Yes","No") == "Yes")
 					summonevents()
-					SSblackbox.add_details("admin_secrets_fun_used","Activate Summon Events")
+					SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Summon Events", "Activate"))
 
 			else
 				switch(alert("What would you like to do?",,"Intensify Summon Events","Turn Off Summon Events","Nothing"))
 					if("Intensify Summon Events")
 						summonevents()
-						SSblackbox.add_details("admin_secrets_fun_used","Intensify Summon Events")
+						SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Summon Events", "Intensify"))
 					if("Turn Off Summon Events")
 						SSevents.toggleWizardmode()
 						SSevents.resetFrequency()
-						SSblackbox.add_details("admin_secrets_fun_used","Disable Summon Events")
+						SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Summon Events", "Disable"))
 
 		if("dorf")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","Dwarf Beards")
-			for(var/mob/living/carbon/human/B in GLOB.mob_list)
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("Dwarf Beards"))
+			for(var/mob/living/carbon/human/B in GLOB.carbon_list)
 				B.facial_hair_style = "Dward Beard"
 				B.update_hair()
 			message_admins("[key_name_admin(usr)] activated dorf mode")
@@ -515,14 +541,14 @@
 		if("onlyone")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","There Can Be Only One")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("There Can Be Only One"))
 			usr.client.only_one()
 			sound_to_playing_players('sound/misc/highlander.ogg')
 
 		if("delayed_onlyone")
 			if(!check_rights(R_FUN))
 				return
-			SSblackbox.add_details("admin_secrets_fun_used","There Can Be Only One")
+			SSblackbox.record_feedback("nested tally", "admin_secrets_fun_used", 1, list("There Can Be Only One"))
 			usr.client.only_one_delayed()
 			sound_to_playing_players('sound/misc/highlander_delayed.ogg')
 
@@ -572,6 +598,77 @@
 				purrbation.")
 			log_admin("[key_name(usr)] has removed everyone from purrbation.")
 
+		if("customportal")
+			if(!check_rights(R_FUN))
+				return
+
+			var/list/settings = list(
+				"mainsettings" = list(
+					"typepath" = list("desc" = "Path to spawn", "type" = "datum", "path" = "/mob/living", "subtypesonly" = TRUE, "value" = /mob/living/simple_animal/hostile/poison/bees),
+					"humanoutfit" = list("desc" = "Outfit if human", "type" = "datum", "path" = "/datum/outfit", "subtypesonly" = TRUE, "value" = /datum/outfit),
+					"amount" = list("desc" = "Number per portal", "type" = "number", "value" = 1),
+					"portalnum" = list("desc" = "Number of total portals", "type" = "number", "value" = 10),
+					"offerghosts" = list("desc" = "Get ghosts to play mobs", "type" = "boolean", "value" = "No"),
+					"minplayers" = list("desc" = "Minimum number of ghosts", "type" = "number", "value" = 1),
+					"playersonly" = list("desc" = "Only spawn ghost-controlled mobs", "type" = "boolean", "value" = "No"),
+					"ghostpoll" = list("desc" = "Ghost poll question", "type" = "string", "value" = "Do you want to play as %TYPE% portal invader?"),
+					"delay" = list("desc" = "Time between portals, in deciseconds", "type" = "number", "value" = 50),
+					"color" = list("desc" = "Portal color", "type" = "color", "value" = "#00FF00"),
+					"playlightning" = list("desc" = "Play lightning sounds on announcement", "type" = "boolean", "value" = "Yes"),
+					"announce_players" = list("desc" = "Make an announcement", "type" = "boolean", "value" = "Yes"),
+					"announcement" = list("desc" = "Announcement", "type" = "string", "value" = "Massive bluespace anomaly detected en route to %STATION%. Brace for impact."),
+				)
+			)
+
+			message_admins("[key_name(usr)] is creating a custom portal storm...")
+			var/list/prefreturn = presentpreflikepicker(usr,"Customize Portal Storm", "Customize Portal Storm", Button1="Ok", width = 600, StealFocus = 1,Timeout = 0, settings=settings)
+
+			if (prefreturn["button"] == 1)
+				var/list/prefs = settings["mainsettings"]
+
+				if (prefs["amount"]["value"] < 1 || prefs["portalnum"]["value"] < 1)
+					to_chat(usr, "Number of portals and mobs to spawn must be at least 1")
+					return
+
+				var/mob/pathToSpawn = prefs["typepath"]["value"]
+				if (!ispath(pathToSpawn))
+					pathToSpawn = text2path(pathToSpawn)
+
+				if (!ispath(pathToSpawn))
+					to_chat(usr, "Invalid path [pathToSpawn]")
+					return
+
+				var/list/candidates = list()
+
+				if (prefs["offerghosts"]["value"] == "Yes")
+					candidates = pollGhostCandidates(replacetext(prefs["ghostpoll"]["value"], "%TYPE%", initial(pathToSpawn.name)), ROLE_TRAITOR)
+
+				if (prefs["playersonly"]["value"] == "Yes" && length(candidates) < prefs["minplayers"]["value"])
+					message_admins("Not enough players signed up to create a portal storm, the minimum was [prefs["minplayers"]["value"]] and the number of signups [length(candidates)]")
+					return
+
+				if (prefs["announce_players"]["value"] == "Yes")
+					portalAnnounce(prefs["announcement"]["value"], (prefs["playlightning"]["value"] == "Yes" ? TRUE : FALSE))
+
+				var/mutable_appearance/storm = mutable_appearance('icons/obj/tesla_engine/energy_ball.dmi', "energy_ball_fast", FLY_LAYER)
+				storm.color = prefs["color"]["value"]
+
+				message_admins("[key_name_admin(usr)] has created a customized portal storm that will spawn [prefs["portalnum"]["value"]] portals, each of them spawning [prefs["amount"]["value"]] of [pathToSpawn]")
+				log_admin("[key_name(usr)] has created a customized portal storm that will spawn [prefs["portalnum"]["value"]] portals, each of them spawning [prefs["amount"]["value"]] of [pathToSpawn]")
+
+				var/outfit = prefs["humanoutfit"]["value"]
+				if (!ispath(outfit))
+					outfit = text2path(outfit)
+
+				for (var/i in 1 to prefs["portalnum"]["value"])
+					if (length(candidates)) // if we're spawning players, gotta be a little tricky and also not spawn players on top of NPCs
+						var/ghostcandidates = list()
+						for (var/j in 1 to min(prefs["amount"]["value"], length(candidates)))
+							ghostcandidates += pick_n_take(candidates)
+							addtimer(CALLBACK(GLOBAL_PROC, .proc/doPortalSpawn, get_random_station_turf(), pathToSpawn, length(ghostcandidates), storm, ghostcandidates, outfit), i*prefs["delay"]["value"])
+					else if (prefs["playersonly"]["value"] != "Yes")
+						addtimer(CALLBACK(GLOBAL_PROC, .proc/doPortalSpawn, get_random_station_turf(), pathToSpawn, prefs["amount"]["value"], storm, null, outfit), i*prefs["delay"]["value"])
+
 	if(E)
 		E.processing = FALSE
 		if(E.announceWhen>0)
@@ -582,3 +679,29 @@
 		log_admin("[key_name(usr)] used secret [item]")
 		if (ok)
 			to_chat(world, text("<B>A secret has been activated by []!</B>", usr.key))
+
+/proc/portalAnnounce(announcement, playlightning)
+	set waitfor = 0
+	if (playlightning)
+		sound_to_playing_players('sound/magic/lightning_chargeup.ogg')
+		sleep(80)
+	priority_announce(replacetext(announcement, "%STATION%", station_name()))
+	if (playlightning)
+		sleep(20)
+		sound_to_playing_players('sound/magic/lightningbolt.ogg')
+
+/proc/doPortalSpawn(turf/loc, mobtype, numtospawn, portal_appearance, players, humanoutfit)
+	for (var/i in 1 to numtospawn)
+		var/mob/spawnedMob = new mobtype(loc)
+		if (length(players))
+			var/mob/chosen = players[1]
+			if (chosen.client)
+				chosen.client.prefs.copy_to(spawnedMob)
+				spawnedMob.key = chosen.key
+			players -= chosen
+		if (ishuman(spawnedMob) && ispath(humanoutfit, /datum/outfit))
+			var/mob/living/carbon/human/H = spawnedMob
+			H.equipOutfit(humanoutfit)
+	var/turf/T = get_step(loc, SOUTHWEST)
+	flick_overlay_static(portal_appearance, T, 15)
+	playsound(T, 'sound/magic/lightningbolt.ogg', rand(80, 100), 1)

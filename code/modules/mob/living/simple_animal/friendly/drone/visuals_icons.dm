@@ -105,7 +105,7 @@
 
 /mob/living/simple_animal/drone/proc/pickVisualAppearence()
 	picked = FALSE
-	var/appearence = input("Choose your appearence!", "Appearence", "Maintenance Drone") in list("Maintenance Drone", "Repair Drone", "Scout Drone")
+	var/appearence = input("Choose your appearance!", "Appearance", "Maintenance Drone") in list("Maintenance Drone", "Repair Drone", "Scout Drone")
 	switch(appearence)
 		if("Maintenance Drone")
 			visualAppearence = MAINTDRONE
@@ -139,28 +139,3 @@
 			. = 0
 		if(REPAIRDRONE,SCOUTDRONE,CLOCKDRONE)
 			. = -6
-
-/mob/living/simple_animal/drone/proc/updateSeeStaticMobs()
-	if(!client)
-		return
-
-	for(var/i in staticOverlays)
-		client.images.Remove(i)
-		staticOverlays.Remove(i)
-	staticOverlays.len = 0
-
-	if(seeStatic)
-		for(var/mob/living/L in GLOB.mob_list)
-			if(isdrone(L))
-				continue
-			var/image/chosen
-			if(staticChoice in L.staticOverlays)
-				chosen = L.staticOverlays[staticChoice]
-			else
-				chosen = L.staticOverlays["static"]
-			staticOverlays |= chosen
-			client.images |= chosen
-
-
-/mob/living/simple_animal/drone/generateStaticOverlay()
-	return

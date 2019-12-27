@@ -28,8 +28,10 @@ Bonus
 	base_message_chance = 100
 	symptom_delay_min = 25
 	symptom_delay_max = 80
-	threshold_desc = "<b>Resistance 9:</b> Causes permanent deafness, instead of intermittent.<br>\
-					  <b>Stealth 4:</b> The symptom remains hidden until active."
+	threshold_descs = list(
+		"Resistance 9" = "Causes permanent deafness, instead of intermittent.",
+		"Stealth 4" = "The symptom remains hidden until active.",
+	)
 
 /datum/symptom/deafness/Start(datum/disease/advance/A)
 	if(!..())
@@ -48,7 +50,7 @@ Bonus
 			if(prob(base_message_chance) && !suppress_warning)
 				to_chat(M, "<span class='warning'>[pick("You hear a ringing in your ear.", "Your ears pop.")]</span>")
 		if(5)
-			if(power > 2)
+			if(power >= 2)
 				var/obj/item/organ/ears/ears = M.getorganslot(ORGAN_SLOT_EARS)
 				if(istype(ears) && ears.ear_damage < UNHEALING_EAR_DAMAGE)
 					to_chat(M, "<span class='userdanger'>Your ears pop painfully and start bleeding!</span>")

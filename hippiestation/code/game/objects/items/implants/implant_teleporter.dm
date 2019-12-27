@@ -9,6 +9,7 @@
 
 /obj/item/implant/teleporter/Initialize()
 	START_PROCESSING(SSobj, src)
+	.=..()
 
 /obj/item/implant/teleporter/process()
 
@@ -16,7 +17,7 @@
 		useblacklist = FALSE
 
 	if(imp_in)
-		if(imp_in.z != ZLEVEL_CENTCOM) //teleporting doesn't work on centcom
+		if(!is_centcom_level(imp_in.z)) //teleporting doesn't work on centcom
 
 			if(blacklist.len && useblacklist)
 				var/i = 0
@@ -44,7 +45,7 @@
 					retrieve_exile()
 
 /obj/item/implant/teleporter/proc/retrieve_exile()
-	if(imp_in.z != ZLEVEL_CENTCOM)
+	if(!is_centcom_level(imp_in.z))
 		do_teleport(imp_in, pointofreturn)
 		say(retrievalmessage)
 
@@ -66,7 +67,7 @@
 				else
 					return 0
 
-	src.loc = target
+	src.forceMove(target)
 	imp_in = target
 	target.implants += src
 	if(activated)
@@ -78,7 +79,7 @@
 		H.sec_hud_set_implants()
 
 	if(user)
-		add_logs(user, target, "implanted", object="[name]")
+		log_combat(user, target, "implanted", object="[name]")
 
 	if(useblacklist && !blacklist.len)
 		blacklist += imp_in.z

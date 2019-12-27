@@ -1,9 +1,9 @@
-#define MAX_THROWING_DIST 512 // 2 z-levels on default width
+#define MAX_THROWING_DIST 1280 // 5 z-levels on default width
 #define MAX_TICKS_TO_MAKE_UP 3 //how many missed ticks will we attempt to make up for this run.
 
 SUBSYSTEM_DEF(throwing)
 	name = "Throwing"
-	priority = 25
+	priority = FIRE_PRIORITY_THROWING
 	wait = 1
 	flags = SS_NO_INIT|SS_KEEP_TIMING|SS_TICKER
 	runlevels = RUNLEVEL_GAME | RUNLEVEL_POSTGAME
@@ -26,7 +26,7 @@ SUBSYSTEM_DEF(throwing)
 		var/atom/movable/AM = currentrun[currentrun.len]
 		var/datum/thrownthing/TT = currentrun[AM]
 		currentrun.len--
-		if (!AM || !TT)
+		if (QDELETED(AM) || QDELETED(TT))
 			processing -= AM
 			if (MC_TICK_CHECK)
 				return
@@ -54,12 +54,22 @@ SUBSYSTEM_DEF(throwing)
 	var/dist_y
 	var/dx
 	var/dy
+	var/force = MOVE_FORCE_DEFAULT
 	var/pure_diagonal
 	var/diagonal_error
 	var/datum/callback/callback
 	var/paused = FALSE
 	var/delayed_time = 0
 	var/last_move = 0
+
+/datum/thrownthing/Destroy()
+	SSthrowing.processing -= thrownthing
+	thrownthing.throwing = null
+	thrownthing = null
+	target = null
+	thrower = null
+	callback = null
+	return ..()
 
 /datum/thrownthing/proc/tick()
 	var/atom/movable/AM = thrownthing
@@ -80,9 +90,9 @@ SUBSYSTEM_DEF(throwing)
 	last_move = world.time
 
 	//calculate how many tiles to move, making up for any missed ticks.
-	var/tilestomove = Ceiling(min(((((world.time+world.tick_lag) - start_time + delayed_time) * speed) - (dist_travelled ? dist_travelled : -1)), speed*MAX_TICKS_TO_MAKE_UP) * (world.tick_lag * SSthrowing.wait))
+	var/tilestomove = CEILING(min(((((world.time+world.tick_lag) - start_time + delayed_time) * speed) - (dist_travelled ? dist_travelled : -1)), speed*MAX_TICKS_TO_MAKE_UP) * (world.tick_lag * SSthrowing.wait), 1)
 	while (tilestomove-- > 0)
-		if ((dist_travelled >= maxrange || AM.loc == target_turf) && AM.has_gravity(AM.loc) && !AM.unlimitedthrow)
+		if ((dist_travelled >= maxrange || AM.loc == target_turf) && AM.has_gravity(AM.loc) && !AM.unlimitedthrow) // hippie -- bowling code
 			finalize()
 			return
 
@@ -113,15 +123,16 @@ SUBSYSTEM_DEF(throwing)
 			return
 
 /datum/thrownthing/proc/finalize(hit = FALSE, target=null)
-	set waitfor = 0
-	SSthrowing.processing -= thrownthing
+	set waitfor = FALSE
 	//done throwing, either because it hit something or it finished moving
+	if(!thrownthing)
+		return
 	thrownthing.throwing = null
 	if (!hit)
 		for (var/thing in get_turf(thrownthing)) //looking for our target on the turf we land on.
 			var/atom/A = thing
 			if (A == target)
-				hit = 1
+				hit = TRUE
 				thrownthing.throw_impact(A, src)
 				break
 		if (!hit)
@@ -130,10 +141,14 @@ SUBSYSTEM_DEF(throwing)
 	else
 		thrownthing.newtonian_move(init_dir)
 	check_reset_throwforce(thrownthing)
+
 	if(target)
 		thrownthing.throw_impact(target, src)
+
 	if (callback)
 		callback.Invoke()
+
+	qdel(src)
 
 /datum/thrownthing/proc/hit_atom(atom/A)
 	finalize(hit=TRUE, target=A)
@@ -141,7 +156,7 @@ SUBSYSTEM_DEF(throwing)
 /datum/thrownthing/proc/hitcheck()
 	for (var/thing in get_turf(thrownthing))
 		var/atom/movable/AM = thing
-		if (AM == thrownthing)
+		if (AM == thrownthing || (AM == thrower && !ismob(thrownthing)))
 			continue
 		if (AM.density && !(AM.pass_flags & LETPASSTHROW) && !(AM.flags_1 & ON_BORDER_1))
 			finalize(hit=TRUE, target=AM)

@@ -1,17 +1,23 @@
 GLOBAL_DATUM_INIT(keycard_events, /datum/events, new)
 
+#define KEYCARD_RED_ALERT "Red Alert"
+#define KEYCARD_EMERGENCY_MAINTENANCE_ACCESS "Emergency Maintenance Access"
+#define KEYCARD_BSA_UNLOCK "Bluespace Artillery Unlock"
+
 /obj/machinery/keycard_auth
 	name = "Keycard Authentication Device"
 	desc = "This device is used to trigger station functions, which require more than one ID card to authenticate."
 	icon = 'icons/obj/monitors.dmi'
 	icon_state = "auth_off"
-	anchored = TRUE
 	use_power = IDLE_POWER_USE
 	idle_power_usage = 2
 	active_power_usage = 6
 	power_channel = ENVIRON
 	req_access = list(ACCESS_KEYCARD_AUTH)
 	resistance_flags = INDESTRUCTIBLE | LAVA_PROOF | FIRE_PROOF | UNACIDABLE | ACID_PROOF
+	ui_x = 375
+	ui_y = 125
+	
 	var/datum/callback/ev
 	var/event = ""
 	var/obj/machinery/keycard_auth/event_source
@@ -31,7 +37,7 @@ GLOBAL_DATUM_INIT(keycard_events, /datum/events, new)
 					datum/tgui/master_ui = null, datum/ui_state/state = GLOB.physical_state)
 	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
 	if(!ui)
-		ui = new(user, src, ui_key, "keycard_auth", name, 375, 125, master_ui, state)
+		ui = new(user, src, ui_key, "keycard_auth", name, ui_x, ui_y, master_ui, state)
 		ui.open()
 
 /obj/machinery/keycard_auth/ui_data()
@@ -57,11 +63,11 @@ GLOBAL_DATUM_INIT(keycard_events, /datum/events, new)
 	switch(action)
 		if("red_alert")
 			if(!event_source)
-				sendEvent("Red Alert")
+				sendEvent(KEYCARD_RED_ALERT)
 				. = TRUE
 		if("emergency_maint")
 			if(!event_source)
-				sendEvent("Emergency Maintenance Access")
+				sendEvent(KEYCARD_EMERGENCY_MAINTENANCE_ACCESS)
 				. = TRUE
 		if("auth_swipe")
 			if(event_source)
@@ -70,7 +76,7 @@ GLOBAL_DATUM_INIT(keycard_events, /datum/events, new)
 				. = TRUE
 		if("bsa_unlock")
 			if(!event_source)
-				sendEvent("Bluespace Artillery Unlock")
+				sendEvent(KEYCARD_BSA_UNLOCK)
 				. = TRUE
 
 /obj/machinery/keycard_auth/proc/sendEvent(event_type)
@@ -96,17 +102,20 @@ GLOBAL_DATUM_INIT(keycard_events, /datum/events, new)
 
 /obj/machinery/keycard_auth/proc/trigger_event(confirmer)
 	log_game("[key_name(triggerer)] triggered and [key_name(confirmer)] confirmed event [event]")
-	message_admins("[key_name(triggerer)] triggered and [key_name(confirmer)] confirmed event [event]")
+	message_admins("[ADMIN_LOOKUPFLW(triggerer)] triggered and [ADMIN_LOOKUPFLW(confirmer)] confirmed event [event]")
+
+	var/area/A1 = get_area(triggerer)
+	deadchat_broadcast(" triggered [event] at <span class='name'>[A1.name]</span>.", "<span class='name'>[triggerer]</span>", triggerer)
+
+	var/area/A2 = get_area(confirmer)
+	deadchat_broadcast(" confirmed [event] at <span class='name'>[A2.name]</span>.", "<span class='name'>[confirmer]</span>", confirmer)
 	switch(event)
-		if("Red Alert")
+		if(KEYCARD_RED_ALERT)
 			set_security_level(SEC_LEVEL_RED)
-			SSblackbox.inc("alert_keycard_auth_red",)
-		if("Emergency Maintenance Access")
+		if(KEYCARD_EMERGENCY_MAINTENANCE_ACCESS)
 			make_maint_all_access()
-			SSblackbox.inc("alert_keycard_auth_maint")
-		if("Bluespace Artillery Unlock")
+		if(KEYCARD_BSA_UNLOCK)
 			toggle_bluespace_artillery()
-			SSblackbox.inc("alert_keycard_auth_bsa")
 
 GLOBAL_VAR_INIT(emergency_access, FALSE)
 /proc/make_maint_all_access()
@@ -116,6 +125,7 @@ GLOBAL_VAR_INIT(emergency_access, FALSE)
 			D.update_icon(0)
 	minor_announce("Access restrictions on maintenance and external airlocks have been lifted.", "Attention! Station-wide emergency declared!",1)
 	GLOB.emergency_access = TRUE
+	SSblackbox.record_feedback("nested tally", "keycard_auths", 1, list("emergency maintenance access", "enabled"))
 
 /proc/revoke_maint_all_access()
 	for(var/area/maintenance/A in world)
@@ -124,7 +134,13 @@ GLOBAL_VAR_INIT(emergency_access, FALSE)
 			D.update_icon(0)
 	minor_announce("Access restrictions in maintenance areas have been restored.", "Attention! Station-wide emergency rescinded:")
 	GLOB.emergency_access = FALSE
+	SSblackbox.record_feedback("nested tally", "keycard_auths", 1, list("emergency maintenance access", "disabled"))
 
 /proc/toggle_bluespace_artillery()
 	GLOB.bsa_unlock = !GLOB.bsa_unlock
 	minor_announce("Bluespace Artillery firing protocols have been [GLOB.bsa_unlock? "unlocked" : "locked"]", "Weapons Systems Update:")
+	SSblackbox.record_feedback("nested tally", "keycard_auths", 1, list("bluespace artillery", GLOB.bsa_unlock? "unlocked" : "locked"))
+
+#undef KEYCARD_RED_ALERT
+#undef KEYCARD_EMERGENCY_MAINTENANCE_ACCESS
+#undef KEYCARD_BSA_UNLOCK

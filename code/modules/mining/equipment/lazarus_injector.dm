@@ -14,9 +14,9 @@
 	var/loaded = 1
 	var/malfunctioning = 0
 	var/revive_type = SENTIENCE_ORGANIC //So you can't revive boss monsters or robots with it
-	origin_tech = "biotech=4;magnets=6"
 
 /obj/item/lazarus_injector/afterattack(atom/target, mob/user, proximity_flag)
+	. = ..()
 	if(!loaded)
 		return
 	if(isliving(target) && proximity_flag)
@@ -35,12 +35,12 @@
 						H.robust_searching = 1
 						H.friends += user
 						H.attack_same = 1
-						log_game("[user] has revived hostile mob [target] with a malfunctioning lazarus injector")
+						log_game("[key_name(user)] has revived hostile mob [key_name(target)] with a malfunctioning lazarus injector")
 					else
 						H.attack_same = 0
 				loaded = 0
 				user.visible_message("<span class='notice'>[user] injects [M] with [src], reviving it.</span>")
-				SSblackbox.add_details("lazarus_injector", "[M.type]")
+				SSblackbox.record_feedback("tally", "lazarus_injector", 1, M.type)
 				playsound(src,'sound/effects/refill.ogg',50,1)
 				icon_state = "lazarus_empty"
 				return
@@ -52,12 +52,15 @@
 			return
 
 /obj/item/lazarus_injector/emp_act()
+	. = ..()
+	if(. & EMP_PROTECT_SELF)
+		return
 	if(!malfunctioning)
 		malfunctioning = 1
 
 /obj/item/lazarus_injector/examine(mob/user)
-	..()
+	. = ..()
 	if(!loaded)
-		to_chat(user, "<span class='info'>[src] is empty.</span>")
+		. += "<span class='info'>[src] is empty.</span>"
 	if(malfunctioning)
-		to_chat(user, "<span class='info'>The display on [src] seems to be flickering.</span>")
+		. += "<span class='info'>The display on [src] seems to be flickering.</span>"

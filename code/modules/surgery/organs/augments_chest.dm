@@ -3,7 +3,7 @@
 	desc = "Implants for the organs in your torso."
 	icon_state = "chest_implant"
 	implant_overlay = "chest_implant_overlay"
-	zone = "chest"
+	zone = BODY_ZONE_CHEST
 
 /obj/item/organ/cyberimp/chest/nutriment
 	name = "Nutriment pump implant"
@@ -13,8 +13,7 @@
 	var/hunger_threshold = NUTRITION_LEVEL_STARVING
 	var/synthesizing = 0
 	var/poison_amount = 5
-	slot = ORGAN_SLOT_STOMACH
-	origin_tech = "materials=2;powerstorage=2;biotech=2"
+	slot = ORGAN_SLOT_STOMACH_AID
 
 /obj/item/organ/cyberimp/chest/nutriment/on_life()
 	if(synthesizing)
@@ -23,16 +22,17 @@
 	if(owner.nutrition <= hunger_threshold)
 		synthesizing = TRUE
 		to_chat(owner, "<span class='notice'>You feel less hungry...</span>")
-		owner.nutrition += 50
+		owner.adjust_nutrition(50)
 		addtimer(CALLBACK(src, .proc/synth_cool), 50)
 
 /obj/item/organ/cyberimp/chest/nutriment/proc/synth_cool()
 	synthesizing = FALSE
 
 /obj/item/organ/cyberimp/chest/nutriment/emp_act(severity)
-	if(!owner)
+	. = ..()
+	if(!owner || . & EMP_PROTECT_SELF)
 		return
-	owner.reagents.add_reagent("bad_food", poison_amount / severity)
+	owner.reagents.add_reagent(/datum/reagent/toxin/bad_food, poison_amount / severity)
 	to_chat(owner, "<span class='warning'>You feel like your insides are burning.</span>")
 
 
@@ -43,14 +43,12 @@
 	implant_color = "#006607"
 	hunger_threshold = NUTRITION_LEVEL_HUNGRY
 	poison_amount = 10
-	origin_tech = "materials=4;powerstorage=3;biotech=3"
 
 /obj/item/organ/cyberimp/chest/reviver
 	name = "Reviver implant"
-	desc = "This implant will attempt to revive you if you lose consciousness. For the faint of heart!"
+	desc = "This implant will attempt to revive and heal you if you lose consciousness. For the faint of heart!"
 	icon_state = "chest_implant"
 	implant_color = "#AD0000"
-	origin_tech = "materials=5;programming=4;biotech=4"
 	slot = ORGAN_SLOT_HEART_AID
 	var/revive_cost = 0
 	var/reviving = 0
@@ -92,7 +90,8 @@
 		revive_cost += 40
 
 /obj/item/organ/cyberimp/chest/reviver/emp_act(severity)
-	if(!owner)
+	. = ..()
+	if(!owner || . & EMP_PROTECT_SELF)
 		return
 
 	if(reviving)
@@ -122,7 +121,6 @@
 	Unlike regular jetpacks, this device has no stabilization system."
 	slot = ORGAN_SLOT_THRUSTERS
 	icon_state = "imp_jetpack"
-	origin_tech = "materials=4;magnets=4;biotech=4;engineering=5"
 	implant_overlay = null
 	implant_color = null
 	actions_types = list(/datum/action/item_action/organ_action/toggle)
@@ -131,32 +129,36 @@
 	var/datum/effect_system/trail_follow/ion/ion_trail
 
 /obj/item/organ/cyberimp/chest/thrusters/Insert(mob/living/carbon/M, special = 0)
-	..()
+	. = ..()
 	if(!ion_trail)
 		ion_trail = new
 	ion_trail.set_up(M)
 
 /obj/item/organ/cyberimp/chest/thrusters/Remove(mob/living/carbon/M, special = 0)
 	if(on)
-		toggle(silent=1)
+		toggle(silent = TRUE)
 	..()
 
 /obj/item/organ/cyberimp/chest/thrusters/ui_action_click()
 	toggle()
 
-/obj/item/organ/cyberimp/chest/thrusters/proc/toggle(silent=0)
+/obj/item/organ/cyberimp/chest/thrusters/proc/toggle(silent = FALSE)
 	if(!on)
-		if(crit_fail)
+		if(broken_cyber_organ)
 			if(!silent)
 				to_chat(owner, "<span class='warning'>Your thrusters set seems to be broken!</span>")
 			return 0
 		on = TRUE
 		if(allow_thrust(0.01))
 			ion_trail.start()
+			RegisterSignal(owner, COMSIG_MOVABLE_MOVED, .proc/move_react)
+			owner.add_movespeed_modifier(MOVESPEED_ID_CYBER_THRUSTER, priority=100, multiplicative_slowdown=-2, movetypes=FLOATING, conflict=MOVE_CONFLICT_JETPACK)
 			if(!silent)
 				to_chat(owner, "<span class='notice'>You turn your thrusters set on.</span>")
 	else
 		ion_trail.stop()
+		UnregisterSignal(owner, COMSIG_MOVABLE_MOVED)
+		owner.remove_movespeed_modifier(MOVESPEED_ID_CYBER_THRUSTER)
 		if(!silent)
 			to_chat(owner, "<span class='notice'>You turn your thrusters set off.</span>")
 		on = FALSE
@@ -170,6 +172,9 @@
 	for(var/X in actions)
 		var/datum/action/A = X
 		A.UpdateButtonIcon()
+
+/obj/item/organ/cyberimp/chest/thrusters/proc/move_react()
+	allow_thrust(0.01)
 
 /obj/item/organ/cyberimp/chest/thrusters/proc/allow_thrust(num)
 	if(!on || !owner)
@@ -200,6 +205,5 @@
 		else
 			T.assume_air(removed)
 
-	toggle(silent=1)
+	toggle(silent = TRUE)
 	return 0
-

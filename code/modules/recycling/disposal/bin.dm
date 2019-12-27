@@ -1,16 +1,19 @@
 // Disposal bin and Delivery chute.
 
-#define SEND_PRESSURE 0.05*ONE_ATMOSPHERE
+#define SEND_PRESSURE (0.05*ONE_ATMOSPHERE)
 
 /obj/machinery/disposal
 	icon = 'icons/obj/atmospherics/pipes/disposal.dmi'
-	anchored = TRUE
 	density = TRUE
-	on_blueprints = TRUE
-	armor = list(melee = 25, bullet = 10, laser = 10, energy = 100, bomb = 0, bio = 100, rad = 100, fire = 90, acid = 30)
+	armor = list("melee" = 25, "bullet" = 10, "laser" = 10, "energy" = 100, "bomb" = 0, "bio" = 100, "rad" = 100, "fire" = 90, "acid" = 30)
 	max_integrity = 200
 	resistance_flags = FIRE_PROOF
-	interact_open = TRUE
+	interaction_flags_machine = INTERACT_MACHINE_OPEN | INTERACT_MACHINE_WIRES_IF_OPEN | INTERACT_MACHINE_ALLOW_SILICON | INTERACT_MACHINE_OPEN_SILICON
+	obj_flags = CAN_BE_HIT | USES_TGUI
+	rad_flags = RAD_PROTECT_CONTENTS | RAD_NO_CONTAMINATE
+	ui_x = 300
+	ui_y = 180
+
 	var/datum/gas_mixture/air_contents	// internal reservoir
 	var/full_pressure = FALSE
 	var/pressure_charging = TRUE
@@ -29,11 +32,11 @@
 
 	if(make_from)
 		setDir(make_from.dir)
-		make_from.loc = null
+		make_from.moveToNullspace()
 		stored = make_from
 		pressure_charging = FALSE // newly built disposal bins start with pump off
 	else
-		stored = new /obj/structure/disposalconstruct(null, make_from = src)
+		stored = new /obj/structure/disposalconstruct(null, null , SOUTH , FALSE , src)
 
 	trunk_check()
 
@@ -42,10 +45,6 @@
 	update_icon()
 
 	return INITIALIZE_HINT_LATELOAD //we need turfs to have air
-
-/obj/machinery/disposal/ComponentInitialize()
-	. = ..()
-	AddComponent(/datum/component/rad_insulation, RAD_NO_INSULATION)
 
 /obj/machinery/disposal/proc/trunk_check()
 	trunk = locate() in loc
@@ -81,25 +80,23 @@
 /obj/machinery/disposal/attackby(obj/item/I, mob/user, params)
 	add_fingerprint(user)
 	if(!pressure_charging && !full_pressure && !flush)
-		if(istype(I, /obj/item/screwdriver))
+		if(I.tool_behaviour == TOOL_SCREWDRIVER)
 			panel_open = !panel_open
-			playsound(get_turf(src), I.usesound, 50, 1)
+			I.play_tool_sound(src)
 			to_chat(user, "<span class='notice'>You [panel_open ? "remove":"attach"] the screws around the power connection.</span>")
 			return
-		else if(istype(I, /obj/item/weldingtool) && panel_open)
-			var/obj/item/weldingtool/W = I
-			if(W.remove_fuel(0,user))
-				playsound(src.loc, 'sound/items/welder2.ogg', 100, 1)
-				to_chat(user, "<span class='notice'>You start slicing the floorweld off \the [src]...</span>")
-				if(do_after(user,20*I.toolspeed, target = src) && panel_open)
-					if(!W.isOn())
-						return
-					to_chat(user, "<span class='notice'>You slice the floorweld off \the [src].</span>")
-					deconstruct()
+		else if(I.tool_behaviour == TOOL_WELDER && panel_open)
+			if(!I.tool_start_check(user, amount=0))
+				return
+
+			to_chat(user, "<span class='notice'>You start slicing the floorweld off \the [src]...</span>")
+			if(I.use_tool(src, user, 20, volume=100) && panel_open)
+				to_chat(user, "<span class='notice'>You slice the floorweld off \the [src].</span>")
+				deconstruct()
 			return
 
 	if(user.a_intent != INTENT_HARM)
-		if((I.flags_1 & ABSTRACT_1) || !user.temporarilyRemoveItemFromInventory(I))
+		if((I.item_flags & ABSTRACT) || !user.temporarilyRemoveItemFromInventory(I))
 			return
 		place_item_in_disposal(I, user)
 		update_icon()
@@ -118,7 +115,12 @@
 
 /obj/machinery/disposal/proc/stuff_mob_in(mob/living/target, mob/living/user)
 	if(!iscarbon(user) && !user.ventcrawler) //only carbon and ventcrawlers can climb into disposal by themselves.
-		return
+		if (iscyborg(user))
+			var/mob/living/silicon/robot/borg = user
+			if (!borg.module || !borg.module.canDispose)
+				return
+		else
+			return
 	if(!isturf(user.loc)) //No magically doing it from inside closets
 		return
 	if(target.buckled || target.has_buckled_mobs())
@@ -139,7 +141,7 @@
 			user.visible_message("[user] climbs into [src].", "<span class='notice'>You climb into [src].</span>")
 		else
 			target.visible_message("<span class='danger'>[user] has placed [target] in [src].</span>", "<span class='userdanger'>[user] has placed [target] in [src].</span>")
-			add_logs(user, target, "stuffed", addition="into [src]")
+			log_combat(user, target, "stuffed", addition="into [src]")
 			target.LAssailant = user
 		update_icon()
 
@@ -190,7 +192,7 @@
 	sleep(5)
 	if(QDELETED(src))
 		return
-	var/obj/structure/disposalholder/H = new()
+	var/obj/structure/disposalholder/H = new(src)
 	newHolderDestination(H)
 	H.init(src)
 	air_contents = new()
@@ -206,13 +208,10 @@
 /obj/machinery/disposal/proc/flushAnimation()
 	flick("[icon_state]-flush", src)
 
-// called when area power changes
-/obj/machinery/disposal/power_change()
-	..()	// do default setting/reset of stat NOPOWER bit
-	update_icon()	// update icon
-
 // called when holder is expelled from a disposal
 /obj/machinery/disposal/proc/expel(obj/structure/disposalholder/H)
+	H.active = FALSE
+
 	var/turf/T = get_turf(src)
 	var/turf/target
 	playsound(src, 'sound/machines/hiss.ogg', 50, 0, 0)
@@ -246,13 +245,16 @@
 	return src
 
 //How disposal handles getting a storage dump from a storage object
-/obj/machinery/disposal/storage_contents_dump_act(obj/item/storage/src_object, mob/user)
+/obj/machinery/disposal/storage_contents_dump_act(datum/component/storage/src_object, mob/user)
+	. = ..()
+	if(.)
+		return
 	for(var/obj/item/I in src_object)
-		if(user.s_active != src_object)
+		if(user.active_storage != src_object)
 			if(I.on_found(user))
 				return
 		src_object.remove_from_storage(I, src)
-	return 1
+	return TRUE
 
 // Disposal bin
 // Holds items for disposal into pipe system
@@ -268,11 +270,12 @@
 
 // attack by item places it in to disposal
 /obj/machinery/disposal/bin/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/storage/bag/trash))
+	if(istype(I, /obj/item/storage/bag/trash))	//Not doing component overrides because this is a specific type.
 		var/obj/item/storage/bag/trash/T = I
+		var/datum/component/storage/STR = T.GetComponent(/datum/component/storage)
 		to_chat(user, "<span class='warning'>You empty the bag.</span>")
 		for(var/obj/item/O in T.contents)
-			T.remove_from_storage(O,src)
+			STR.remove_from_storage(O,src)
 		T.update_icon()
 		update_icon()
 	else
@@ -286,7 +289,7 @@
 		return
 	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
 	if(!ui)
-		ui = new(user, src, ui_key, "disposal_unit", name, 300, 200, master_ui, state)
+		ui = new(user, src, ui_key, "disposal_unit", name, ui_x, ui_y, master_ui, state)
 		ui.open()
 
 /obj/machinery/disposal/bin/ui_data(mob/user)
@@ -295,8 +298,7 @@
 	data["full_pressure"] = full_pressure
 	data["pressure_charging"] = pressure_charging
 	data["panel_open"] = panel_open
-	var/per = Clamp(100* air_contents.return_pressure() / (SEND_PRESSURE), 0, 100)
-	data["per"] = round(per, 1)
+	data["per"] = CLAMP01(air_contents.return_pressure() / (SEND_PRESSURE))
 	data["isai"] = isAI(user)
 	return data
 
@@ -329,7 +331,7 @@
 			. = TRUE
 
 
-/obj/machinery/disposal/bin/hitby(atom/movable/AM)
+/obj/machinery/disposal/bin/hitby(atom/movable/AM, skipcatch, hitpush, blocked, datum/thrownthing/throwingdatum)
 	if(isitem(AM) && AM.CanEnterDisposals())
 		if(prob(75))
 			AM.forceMove(src)
@@ -374,7 +376,6 @@
 
 /obj/machinery/disposal/bin/proc/do_flush()
 	set waitfor = FALSE
-	SSblackbox.inc("disposal_auto_flush")
 	flush()
 
 //timed process
@@ -451,8 +452,8 @@
 		..()
 		flush()
 
-/obj/machinery/disposal/deliveryChute/CollidedWith(atom/movable/AM) //Go straight into the chute
-	if(!AM.CanEnterDisposals())
+/obj/machinery/disposal/deliveryChute/Bumped(atom/movable/AM) //Go straight into the chute
+	if(QDELETED(AM) || !AM.CanEnterDisposals())
 		return
 	switch(dir)
 		if(NORTH)
@@ -470,7 +471,7 @@
 
 	if(isobj(AM))
 		var/obj/O = AM
-		O.loc = src
+		O.forceMove(src)
 	else if(ismob(AM))
 		var/mob/M = AM
 		if(prob(2)) // to prevent mobs being stuck in infinite loops
@@ -490,6 +491,9 @@
 
 /obj/mecha/CanEnterDisposals()
 	return
+
+/obj/machinery/disposal/bin/newHolderDestination(obj/structure/disposalholder/H)
+	H.destinationTag = 1
 
 /obj/machinery/disposal/deliveryChute/newHolderDestination(obj/structure/disposalholder/H)
 	H.destinationTag = 1

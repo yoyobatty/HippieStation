@@ -199,7 +199,7 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 		var/admin_number_present = send2irc_adminless_only(initiator_ckey, "Ticket #[id]: [name]")
 		log_admin_private("Ticket #[id]: [key_name(initiator)]: [name] - heard by [admin_number_present] non-AFK admins who have +BAN.")
 		if(admin_number_present <= 0)
-			to_chat(C, "<span class='notice'>No active admins are online, your adminhelp was sent to the admin irc.</span>")
+			to_chat(C, "<span class='notice'>No active admins are online, your adminhelp was sent to the admin irc.</span>", confidential=TRUE)
 			heard_by_no_admins = TRUE
 
 	GLOB.ahelp_tickets.active_tickets += src
@@ -214,7 +214,7 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 	if(heard_by_no_admins && usr && usr.ckey != initiator_ckey)
 		heard_by_no_admins = FALSE
 		send2irc(initiator_ckey, "Ticket #[id]: Answered by [key_name(usr)]")
-	_interactions += "[gameTimestamp()]: [formatted_message]"
+	_interactions += "[time_stamp()]: [formatted_message]"
 
 //Removes the ahelp verb and returns it after 2 minutes
 /datum/admin_help/proc/TimeoutVerb()
@@ -255,30 +255,29 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 /datum/admin_help/proc/MessageNoRecipient(msg)
 	var/ref_src = "[REF(src)]"
 	//Message to be sent to all admins
-	var/admin_msg = "<span class='adminnotice'><span class='adminhelp'>Ticket [TicketHref("#[id]", ref_src)]</span><b>: [LinkedReplyName(ref_src)] [FullMonty(ref_src)]:</b> [keywords_lookup(msg)]</span>"
+	var/admin_msg = "<span class='adminnotice'><span class='adminhelp'>Ticket [TicketHref("#[id]", ref_src)]</span><b>: [LinkedReplyName(ref_src)] [FullMonty(ref_src)]:</b> <span class='linkify'>[keywords_lookup(msg)]</span></span>"
 
 	AddInteraction("<font color='red'>[LinkedReplyName(ref_src)]: [msg]</font>")
+	log_admin_private("Ticket #[id]: [key_name(initiator)]: [msg]")
 
 	//send this msg to all admins
 	for(var/client/X in GLOB.admins)
-		if(!check_rights_for(X, R_ADMIN))
-			continue
 		if(X.prefs.toggles & SOUND_ADMINHELP)
 			SEND_SOUND(X, sound('sound/effects/adminhelp.ogg'))
 		window_flash(X, ignorepref = TRUE)
-		to_chat(X, admin_msg)
+		to_chat(X, admin_msg, confidential=TRUE)
 
 	//show it to the person adminhelping too
-	to_chat(initiator, "<span class='adminnotice'>PM to-<b>Admins</b>: [msg]</span>")
+	to_chat(initiator, "<span class='adminnotice'>PM to-<b>Admins</b>: <span class='linkify'>[msg]</span></span>", confidential=TRUE)
 
 //Reopen a closed ticket
 /datum/admin_help/proc/Reopen()
 	if(state == AHELP_ACTIVE)
-		to_chat(usr, "<span class='warning'>This ticket is already open.</span>")
+		to_chat(usr, "<span class='warning'>This ticket is already open.</span>", confidential=TRUE)
 		return
 
 	if(GLOB.ahelp_tickets.CKey2ActiveTicket(initiator_ckey))
-		to_chat(usr, "<span class='warning'>This user already has an active ticket, cannot reopen this one.</span>")
+		to_chat(usr, "<span class='warning'>This user already has an active ticket, cannot reopen this one.</span>", confidential=TRUE)
 		return
 
 	statclick = new(null, src)
@@ -287,9 +286,9 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 	GLOB.ahelp_tickets.resolved_tickets -= src
 	switch(state)
 		if(AHELP_CLOSED)
-			SSblackbox.dec("ahelp_close")
+			SSblackbox.record_feedback("tally", "ahelp_stats", -1, "closed")
 		if(AHELP_RESOLVED)
-			SSblackbox.dec("ahelp_resolve")
+			SSblackbox.record_feedback("tally", "ahelp_stats", -1, "resolved")
 	state = AHELP_ACTIVE
 	closed_at = null
 	if(initiator)
@@ -299,7 +298,7 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 	var/msg = "<span class='adminhelp'>Ticket [TicketHref("#[id]")] reopened by [key_name_admin(usr)].</span>"
 	message_admins(msg)
 	log_admin_private(msg)
-	SSblackbox.inc("ahelp_reopen")
+	SSblackbox.record_feedback("tally", "ahelp_stats", 1, "reopened")
 	TicketPanel()	//can only be done from here, so refresh it
 
 //private
@@ -321,7 +320,7 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 	GLOB.ahelp_tickets.ListInsert(src)
 	AddInteraction("<font color='red'>Closed by [key_name].</font>")
 	if(!silent)
-		SSblackbox.inc("ahelp_close")
+		SSblackbox.record_feedback("tally", "ahelp_stats", 1, "closed")
 		var/msg = "Ticket [TicketHref("#[id]")] closed by [key_name]."
 		message_admins(msg)
 		log_admin_private(msg)
@@ -337,9 +336,9 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 	addtimer(CALLBACK(initiator, /client/proc/giveadminhelpverb), 50)
 
 	AddInteraction("<font color='green'>Resolved by [key_name].</font>")
-	to_chat(initiator, "<span class='adminhelp'>Your ticket has been resolved by an admin. The Adminhelp verb will be returned to you shortly.</span>")
+	to_chat(initiator, "<span class='adminhelp'>Your ticket has been resolved by an admin. The Adminhelp verb will be returned to you shortly.</span>", confidential=TRUE)
 	if(!silent)
-		SSblackbox.inc("ahelp_resolve")
+		SSblackbox.record_feedback("tally", "ahelp_stats", 1, "resolved")
 		var/msg = "Ticket [TicketHref("#[id]")] resolved by [key_name]"
 		message_admins(msg)
 		log_admin_private(msg)
@@ -354,11 +353,11 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 
 		SEND_SOUND(initiator, sound('sound/effects/adminhelp.ogg'))
 
-		to_chat(initiator, "<font color='red' size='4'><b>- AdminHelp Rejected! -</b></font>")
-		to_chat(initiator, "<font color='red'><b>Your admin help was rejected.</b> The adminhelp verb has been returned to you so that you may try again.</font>")
-		to_chat(initiator, "Please try to be calm, clear, and descriptive in admin helps, do not assume the admin has seen any related events, and clearly state the names of anybody you are reporting.")
+		to_chat(initiator, "<font color='red' size='4'><b>- AdminHelp Rejected! -</b></font>", confidential=TRUE)
+		to_chat(initiator, "<font color='red'><b>Your admin help was rejected.</b> The adminhelp verb has been returned to you so that you may try again.</font>", confidential=TRUE)
+		to_chat(initiator, "Please try to be calm, clear, and descriptive in admin helps, do not assume the admin has seen any related events, and clearly state the names of anybody you are reporting.", confidential=TRUE)
 
-	SSblackbox.inc("ahelp_reject")
+	SSblackbox.record_feedback("tally", "ahelp_stats", 1, "rejected")
 	var/msg = "Ticket [TicketHref("#[id]")] rejected by [key_name]"
 	message_admins(msg)
 	log_admin_private(msg)
@@ -371,13 +370,12 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 		return
 
 	var/msg = "<font color='red' size='4'><b>- AdminHelp marked as IC issue! -</b></font><br>"
-	msg += "<font color='red'><b>Losing is part of the game!</b></font><br>"
-	msg += "<font color='red'>Your character will frequently die, sometimes without even a possibility of avoiding it. Events will often be out of your control. No matter how good or prepared you are, sometimes you just lose.</font>"
+	msg += "<font color='red'>Your issue has been determined by an administrator to be an in character issue and does NOT require administrator intervention at this time. For further resolution you should pursue options that are in character.</font>"
 
 	if(initiator)
-		to_chat(initiator, msg)
+		to_chat(initiator, msg, confidential=TRUE)
 
-	SSblackbox.inc("ahelp_icissue")
+	SSblackbox.record_feedback("tally", "ahelp_stats", 1, "IC")
 	msg = "Ticket [TicketHref("#[id]")] marked as IC by [key_name]"
 	message_admins(msg)
 	log_admin_private(msg)
@@ -477,17 +475,22 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 	deltimer(adminhelptimerid)
 	adminhelptimerid = 0
 
+// Used for methods where input via arg doesn't work
+/client/proc/get_adminhelp()
+	var/msg = input(src, "Please describe your problem concisely and an admin will help as soon as they're able.", "Adminhelp contents") as text|null
+	adminhelp(msg)
+
 /client/verb/adminhelp(msg as text)
 	set category = "Admin"
 	set name = "Adminhelp"
 
 	if(GLOB.say_disabled)	//This is here to try to identify lag problems
-		to_chat(usr, "<span class='danger'>Speech is currently admin-disabled.</span>")
+		to_chat(usr, "<span class='danger'>Speech is currently admin-disabled.</span>", confidential=TRUE)
 		return
 
 	//handle muting and automuting
 	if(prefs.muted & MUTE_ADMINHELP)
-		to_chat(src, "<span class='danger'>Error: Admin-PM: You cannot send adminhelps (Muted).</span>")
+		to_chat(src, "<span class='danger'>Error: Admin-PM: You cannot send adminhelps (Muted).</span>", confidential=TRUE)
 		return
 	if(handle_spam_prevention(msg,MUTE_ADMINHELP))
 		return
@@ -497,7 +500,7 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 	if(!msg)
 		return
 
-	SSblackbox.add_details("admin_verb","Adminhelp") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+	SSblackbox.record_feedback("tally", "admin_verb", 1, "Adminhelp") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
 	if(current_ticket)
 		if(alert(usr, "You already have a ticket open. Is this for the same issue?",,"Yes","No") != "No")
 			if(current_ticket)
@@ -505,34 +508,12 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 				current_ticket.TimeoutVerb()
 				return
 			else
-				to_chat(usr, "<span class='warning'>Ticket not found, creating new one...</span>")
+				to_chat(usr, "<span class='warning'>Ticket not found, creating new one...</span>", confidential=TRUE)
 		else
 			current_ticket.AddInteraction("[key_name_admin(usr)] opened a new ticket.")
 			current_ticket.Close()
 
 	new /datum/admin_help(msg, src, FALSE)
-
-//admin proc
-/client/proc/cmd_admin_ticket_panel()
-	set name = "Show Ticket List"
-	set category = "Admin"
-
-	if(!check_rights(R_ADMIN, TRUE))
-		return
-
-	var/browse_to
-
-	switch(input("Display which ticket list?") as null|anything in list("Active Tickets", "Closed Tickets", "Resolved Tickets"))
-		if("Active Tickets")
-			browse_to = AHELP_ACTIVE
-		if("Closed Tickets")
-			browse_to = AHELP_CLOSED
-		if("Resolved Tickets")
-			browse_to = AHELP_RESOLVED
-		else
-			return
-
-	GLOB.ahelp_tickets.BrowseTickets(browse_to)
 
 //
 // LOGGING
@@ -594,19 +575,22 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 /proc/send2irc(msg,msg2)
 	msg = replacetext(replacetext(msg, "\proper", ""), "\improper", "")
 	msg2 = replacetext(replacetext(msg2, "\proper", ""), "\improper", "")
-	SERVER_TOOLS_RELAY_BROADCAST("[msg] | [msg2]")
+	world.TgsTargetedChatBroadcast("[msg] | [msg2]", TRUE)
 
 /proc/send2otherserver(source,msg,type = "Ahelp")
 	var/comms_key = CONFIG_GET(string/comms_key)
-	if(comms_key)
-		var/list/message = list()
-		message["message_sender"] = source
-		message["message"] = msg
-		message["source"] = "([CONFIG_GET(string/cross_comms_name)])"
-		message["key"] = comms_key
-		message["crossmessage"] = type
+	if(!comms_key)
+		return
+	var/list/message = list()
+	message["message_sender"] = source
+	message["message"] = msg
+	message["source"] = "([CONFIG_GET(string/cross_comms_name)])"
+	message["key"] = comms_key
+	message += type
 
-		world.Export("[CONFIG_GET(string/cross_server_address)]?[list2params(message)]")
+	var/list/servers = CONFIG_GET(keyed_list/cross_server)
+	for(var/I in servers)
+		world.Export("[servers[I]]?[list2params(message)]")
 
 
 /proc/ircadminwho()
@@ -683,7 +667,7 @@ GLOBAL_DATUM_INIT(ahelp_tickets, /datum/admin_help_tickets, new)
 							var/is_antag = 0
 							if(found.mind && found.mind.special_role)
 								is_antag = 1
-							founds += "Name: [found.name]([found.real_name]) Ckey: [found.ckey] [is_antag ? "(Antag)" : null] "
+							founds += "Name: [found.name]([found.real_name]) Key: [found.key] Ckey: [found.ckey] [is_antag ? "(Antag)" : null] "
 							msg += "[original_word]<font size='1' color='[is_antag ? "red" : "black"]'>(<A HREF='?_src_=holder;[HrefToken(TRUE)];adminmoreinfo=[REF(found)]'>?</A>|<A HREF='?_src_=holder;[HrefToken(TRUE)];adminplayerobservefollow=[REF(found)]'>F</A>)</font> "
 							continue
 		msg += "[original_word] "
