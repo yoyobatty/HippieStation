@@ -302,7 +302,7 @@
 		user.visible_message("<span class='warning'>[user] pees their pants!</span>", "<span class='danger'>You pee your pants!</span>") //extra emberassment!
 		user.adjust_bladder(-rand(45, 65))
 		wu.pee_stained += 1
-		wu.update_clothes_damaged_state()
+		wu.update_clothes_damaged_state(FALSE)
 		return
 	if(/obj/structure/toilet in user.loc.contents)
 		user.visible_message("<span class='notice'>[user] pees into the toilet.</span>", "<span class='notice'>You pee in the toilet.</span>")
@@ -330,7 +330,7 @@
 		user.visible_message("<span class='warning'>[user] poops their pants!</span>", "<span class='danger'>You poop your pants!</span>") //extra emberassment!
 		user.nutrition -= rand(85, 105)
 		wu.poo_stained += 1
-		wu.update_clothes_damaged_state()
+		wu.update_clothes_damaged_state(FALSE)
 		return
 	if(/obj/structure/toilet in user.loc.contents)
 		user.visible_message("<span class='notice'>[user] poo into the toilet.</span>", "<span class='notice'>You poo in the toilet.</span>")
@@ -343,8 +343,7 @@
 	"releases a chocolate fountain out of [user.p_their(TRUE)] asshole!",
 	"gets shit all over the place!",
 	"poos on the floor",
-	"grunts and then drops a big hanky onto the floor!"
-	)
+	"grunts and then drops a big hanky onto the floor!")
 	user.visible_message("<span class='danger'>[user] [pick(msg)]</span>")
 	user.nutrition -= rand(85, 105)
 	return

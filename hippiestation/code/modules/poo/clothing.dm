@@ -3,12 +3,15 @@
   var/pee_stained = 0
 
 /obj/item/clothing/suit/update_clothes_damaged_state()
-	. = ..()
+	..()
 	if(poo_stained)
 		add_overlay(mutable_appearance('hippiestation/icons/obj/poo.dmi', "poo[blood_overlay_type]"))
 
-/obj/item/clothing/clean_blood()
+/obj/item/clothing/suit/ComponentInitialize()
 	. = ..()
+	RegisterSignal(src, COMSIG_COMPONENT_CLEAN_ACT, .proc/clean_dirt)
+
+/obj/item/clothing/proc/clean_dirt()
 	poo_stained = min(poo_stained-1, 0)
 	pee_stained = min(pee_stained-1, 0)
-	update_clothes_damaged_state()
+	update_clothes_damaged_state(FALSE)
