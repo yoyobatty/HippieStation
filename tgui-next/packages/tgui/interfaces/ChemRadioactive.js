@@ -1,16 +1,17 @@
 import { round, toFixed } from 'common/math';
 import { Fragment } from 'inferno';
 import { useBackend } from '../backend';
-import { AnimatedNumber, Box, Button, LabeledList, NumberInput, Section } from '../components';
+import { AnimatedNumber, Box, Button, LabeledList, NumberInput, ProgressBar, Section } from '../components';
 import { BeakerContents } from './common/BeakerContents';
 
-export const ChemHeater = props => {
+export const ChemRadioactive = props => {
   const { act, data } = useBackend(props);
   const {
-    targetTemp,
+    targetRadioactivity,
     isActive,
     isBeakerLoaded,
-    currentTemp,
+    materialAmount,
+    currentRadioactivity,
     beakerCurrentVolume,
     beakerMaxVolume,
     beakerContents = [],
@@ -18,7 +19,7 @@ export const ChemHeater = props => {
   return (
     <Fragment>
       <Section
-        title="Thermostat"
+        title="Particle Detector"
         buttons={(
           <Button
             icon={isActive ? 'power-off' : 'times'}
@@ -30,13 +31,13 @@ export const ChemHeater = props => {
           <LabeledList.Item label="Target">
             <NumberInput
               width="65px"
-              unit="K"
+              unit="Bq"
               step={2}
               stepPixelSize={1}
-              value={round(targetTemp)}
+              value={round(targetRadioactivity)}
               minValue={0}
-              maxValue={1000}
-              onDrag={(e, value) => act('i', {
+              maxValue={20}
+              onDrag={(e, value) => act('irradiate', {
                 target: value,
               })} />
           </LabeledList.Item>
@@ -46,10 +47,20 @@ export const ChemHeater = props => {
               textAlign="right">
               {isBeakerLoaded && (
                 <AnimatedNumber
-                  value={currentTemp}
-                  format={value => toFixed(value) + ' K'} />
+                  value={currentRadioactivity}
+                  format={value => toFixed(value) + ' Bq'} />
               ) || '—'}
             </Box>
+          </LabeledList.Item>
+        </LabeledList>
+      </Section>
+      <Section title="Internal reactor">
+        <LabeledList>
+          <LabeledList.Item label="Uranium amount">
+            <ProgressBar
+              value={materialAmount / data.material_max}>
+              <AnimatedNumber value={materialAmount} />
+            </ProgressBar>
           </LabeledList.Item>
         </LabeledList>
       </Section>

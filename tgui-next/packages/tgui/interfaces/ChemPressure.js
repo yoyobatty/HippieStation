@@ -4,13 +4,13 @@ import { useBackend } from '../backend';
 import { AnimatedNumber, Box, Button, LabeledList, NumberInput, Section } from '../components';
 import { BeakerContents } from './common/BeakerContents';
 
-export const ChemHeater = props => {
+export const ChemPressure = props => {
   const { act, data } = useBackend(props);
   const {
-    targetTemp,
     isActive,
     isBeakerLoaded,
-    currentTemp,
+    internalPressure,
+    currentPressure,
     beakerCurrentVolume,
     beakerMaxVolume,
     beakerContents = [],
@@ -18,7 +18,7 @@ export const ChemHeater = props => {
   return (
     <Fragment>
       <Section
-        title="Thermostat"
+        title="Pressure Gauge"
         buttons={(
           <Button
             icon={isActive ? 'power-off' : 'times'}
@@ -27,27 +27,14 @@ export const ChemHeater = props => {
             onClick={() => act('power')} />
         )}>
         <LabeledList>
-          <LabeledList.Item label="Target">
-            <NumberInput
-              width="65px"
-              unit="K"
-              step={2}
-              stepPixelSize={1}
-              value={round(targetTemp)}
-              minValue={0}
-              maxValue={1000}
-              onDrag={(e, value) => act('i', {
-                target: value,
-              })} />
-          </LabeledList.Item>
           <LabeledList.Item label="Reading">
             <Box
               width="60px"
               textAlign="right">
               {isBeakerLoaded && (
                 <AnimatedNumber
-                  value={currentTemp}
-                  format={value => toFixed(value) + ' K'} />
+                  value={currentPressure}
+                  format={value => toFixed(value) + ' bar'} />
               ) || '—'}
             </Box>
           </LabeledList.Item>

@@ -94,8 +94,7 @@
 
 	var beakerContents[0]
 	if(beaker)
-		for(var/I in beaker.reagents.reagent_list)
-			var/datum/reagent/R = I
+		for(var/datum/reagent/R in beaker.reagents.reagent_list)
 			beakerContents.Add(list(list("name" = R.name, "volume" = R.volume))) // list in a list because Byond merges the first list...
 	data["beakerContents"] = beakerContents
 	return data
@@ -117,6 +116,7 @@
 	desc = "A mystical machine that changes molecules directly on the level of bonding."
 	icon_state = "radio"
 	var/material_amt = 0 //requires uranium in order to function
+	var/material_max = 50000
 	var/target_radioactivity = 0
 	circuit = /obj/item/circuitboard/machine/radioactive
 
@@ -152,12 +152,12 @@
 /obj/machinery/chem/radioactive/attackby(obj/item/I, mob/user, params)
 	if(istype(I, /obj/item/stack/sheet/mineral/uranium))
 		. = TRUE //no afterattack
-		if(material_amt >= 50000)
+		if(material_amt >= material_max)
 			to_chat(user, "<span class='warning'>The [src] is full!</span>")
 			return
 		to_chat(user, "<span class='notice'>You add the uranium to the [src].</span>")
 		var/obj/item/stack/sheet/mineral/uranium/U = I
-		material_amt = CLAMP(material_amt += U.amount * 1000, 0, 50000)//50 sheets max
+		material_amt = CLAMP(material_amt += U.amount * 1000, 0, material_max)//50 sheets max
 		user.dropItemToGround(I)
 		qdel(I)//it's a var now
 		return

@@ -86,6 +86,8 @@ import { Wires } from './interfaces/Wires';
 import { Guardian } from './interfaces/Guardian';
 import { Vending } from './interfaces/Vending';
 import { Pool } from './interfaces/Pool';
+import { ChemPressure } from './interfaces/ChemPressure';
+import { ChemRadioactive } from './interfaces/ChemRadioactive';
 // hippie end
 
 const ROUTES = {
@@ -450,6 +452,14 @@ const ROUTES = {
   },
   pool_controller: {
     component: () => Pool,
+    scrollable: false,
+  },
+  chem_pressure: {
+    component: () => ChemPressure,
+    scrollable: false,
+  },
+  chem_radioactive: {
+    component: () => ChemRadioactive,
     scrollable: false,
   },
   // hippie end
