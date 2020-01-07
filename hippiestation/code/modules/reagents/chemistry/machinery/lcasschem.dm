@@ -38,6 +38,12 @@
 	return
 
 /obj/machinery/chem/attackby(obj/item/I, mob/user, params)
+	if(user.a_intent == INTENT_HARM) //so we can hit the machine
+		return ..()
+
+	if(stat)
+		return TRUE
+
 	if(default_deconstruction_screwdriver(user, icon_state, icon_state, I))
 		return
 
@@ -117,16 +123,22 @@
 	icon_state = "radio"
 	var/material_amt = 0 //requires uranium in order to function
 	var/material_max = 50000
+	var/material_min = 50
 	var/target_radioactivity = 0
 	circuit = /obj/item/circuitboard/machine/radioactive
+
+/obj/machinery/chem/radioactive/Initialize()
+	. = ..()
+	AddComponent(/datum/component/material_container, list(MAT_URANIUM), material_max)
 
 /obj/machinery/chem/radioactive/process()
 	..()
 	if(stat & NOPOWER)
 		return
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	if(on && beaker)
 		icon_state = "radio_on"
-		if(material_amt < 50)
+		if(materials.amount(MAT_URANIUM) < material_min)
 			audible_message("<span class='notice'>The [src] pings in fury: showing the empty reactor indicator!.</span>")
 			playsound(src, 'sound/machines/buzz-two.ogg', 60, 0)
 			on = FALSE
@@ -135,49 +147,34 @@
 			visible_message("<span class='notice'> A green light shows on the [src].</span>")
 			playsound(src, 'sound/machines/ping.ogg', 50, 0)
 			on = FALSE
-		if(material_amt >= 50)
-			if(beaker.reagents.chem_radioactivity > target_radioactivity)
-				beaker.reagents.chem_radioactivity += 1
+		if(materials.amount(MAT_URANIUM) >= material_min)
 			if(beaker.reagents.chem_radioactivity < target_radioactivity)
-				beaker.reagents.chem_radioactivity += 1
-
-			beaker.reagents.chem_radioactivity = round(beaker.reagents.chem_radioactivity)
+				beaker.reagents.chem_radioactivity++
 			beaker.reagents.handle_reactions()
-			material_amt = max(material_amt -= 50, 0)
+			materials.use_amount(material_min)
 			if(prob(50))
 				radiation_pulse(src.loc, 1, 4, min(10, target_radioactivity * 2))
 	if(!on)
 		icon_state = "radio"
 
-/obj/machinery/chem/radioactive/attackby(obj/item/I, mob/user, params)
-	if(istype(I, /obj/item/stack/sheet/mineral/uranium))
-		. = TRUE //no afterattack
-		if(material_amt >= material_max)
-			to_chat(user, "<span class='warning'>The [src] is full!</span>")
-			return
-		to_chat(user, "<span class='notice'>You add the uranium to the [src].</span>")
-		var/obj/item/stack/sheet/mineral/uranium/U = I
-		material_amt = CLAMP(material_amt += U.amount * 1000, 0, material_max)//50 sheets max
-		user.dropItemToGround(I)
-		qdel(I)//it's a var now
-		return
-	..()
-
 /obj/machinery/chem/radioactive/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
 	ui = SStgui.try_update_ui(user, src, ui_key, ui, force_open)
 	if(!ui)
-		ui = new(user, src, ui_key, "chem_radioactive", name, 275, 400, master_ui, state)
+		ui = new(user, src, ui_key, "chem_radioactive", name, 300, 410, master_ui, state)
 		ui.open()
 
 /obj/machinery/chem/radioactive/ui_data()
 	var/data = list()
+	var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
 	data["targetRadioactivity"] = target_radioactivity
 	data["isActive"] = on
 	data["isBeakerLoaded"] = beaker ? TRUE : FALSE
-	data["materialAmount"] = material_amt
-	data["currentRadioactivity"] = beaker ? beaker.reagents.chem_radioactivity : null
-	data["beakerCurrentVolume"] = beaker ? beaker.reagents.total_volume : null
-	data["beakerMaxVolume"] = beaker ? beaker.volume : null
+	data["materialAmount"] = materials.amount(MAT_URANIUM)
+	data["materialMax"] = material_max
+	data["materialMin"] = material_min
+	data["currentRadioactivity"] = beaker ? beaker.reagents.chem_radioactivity : 0
+	data["beakerCurrentVolume"] = beaker ? beaker.reagents.total_volume : 0
+	data["beakerMaxVolume"] = beaker ? beaker.volume : 0
 
 	var beakerContents[0]
 	if(beaker)
@@ -212,6 +209,10 @@
 			on = FALSE
 			replace_beaker(usr)
 			. = TRUE
+		if("ejectsheet") //Causes the protolathe to eject a sheet of material
+			var/datum/component/material_container/materials = GetComponent(/datum/component/material_container)
+			materials.retrieve_sheets(50, MAT_URANIUM, loc)
+	updateUsrDialog()
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /obj/machinery/chem/bluespace
@@ -221,6 +222,10 @@
 	var/crystal_amt = 0
 	var/intensity = 0
 	circuit = /obj/item/circuitboard/machine/bluespace
+
+/obj/machinery/chem/bluespace/Initialize()
+	. = ..()
+	AddComponent(/datum/component/material_container, list(MAT_BLUESPACE), 10)
 
 /obj/machinery/chem/bluespace/process()
 	..()
@@ -237,7 +242,7 @@
 			visible_message("<span class='notice'> A green light shows on the [src].</span>")
 			playsound(src, 'sound/machines/ping.ogg', 50, 0)
 			on = FALSE
-		if(beaker && crystal_amt >= (intensity * 0.005))
+		if(crystal_amt >= (intensity * 0.005))
 			if(prob(intensity * 2))
 				beaker.reagents.chem_bluespaced = TRUE
 			beaker.reagents.handle_reactions()

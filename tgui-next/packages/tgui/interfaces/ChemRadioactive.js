@@ -58,15 +58,19 @@ export const ChemRadioactive = props => {
         <LabeledList>
           <LabeledList.Item label="Uranium amount">
             <ProgressBar
-              value={materialAmount / data.material_max}>
-              <AnimatedNumber value={materialAmount} />
+              value={materialAmount / (data.materialMax - data.materialMin)}>
+              <AnimatedNumber value={materialAmount} /> cm3
             </ProgressBar>
+            <Button
+              icon="eject"
+              content="Eject materials"
+              onClick={() => act('ejectsheet')} />
           </LabeledList.Item>
         </LabeledList>
       </Section>
       <Section
         title="Beaker"
-        buttons={!!isBeakerLoaded && (
+        buttons={(
           <Fragment>
             <Box inline color="label" mr={2}>
               {beakerCurrentVolume} / {beakerMaxVolume} units
