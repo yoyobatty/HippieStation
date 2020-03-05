@@ -231,6 +231,7 @@
 	pass_flags = PASSTABLE|PASSGLASS|PASSGRILLE|LETPASSTHROW
 
 /obj/effect/beam/i_beam/Crossed(atom/movable/AM as mob|obj)
+	. = ..()
 	if(istype(AM, /obj/effect/beam))
 		return
 	if (isitem(AM))

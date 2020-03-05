@@ -350,8 +350,10 @@
 		if(BURN)
 			playsound(src.loc, 'sound/items/welder.ogg', 100, 1)
 
-/obj/structure/spacevine/Crossed(mob/crosser)
-	if(isliving(crosser))
+/obj/structure/spacevine/Crossed(atom/movable/AM)
+	. = ..()
+	if(!isliving(AM))
+		return
 		for(var/datum/spacevine_mutation/SM in mutations)
 			SM.on_cross(src, crosser)
 
