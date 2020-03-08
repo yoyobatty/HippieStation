@@ -97,7 +97,9 @@
 		. += "[t_He] [t_is] wearing [wear_id.get_examine_string(user)]."
 
 	//Status effects
-	. += status_effect_examines()
+	var/list/status_examines = status_effect_examines()
+	if (length(status_examines))
+		. += status_examines
 
 	//Jitters
 	switch(jitteriness)
@@ -126,7 +128,7 @@
 
 	var/temp = getBruteLoss() //no need to calculate each of these twice
 
-	var/list/msg = list("")
+	var/list/msg = list()
 
 	var/list/missing = list(BODY_ZONE_HEAD, BODY_ZONE_CHEST, BODY_ZONE_L_ARM, BODY_ZONE_R_ARM, BODY_ZONE_L_LEG, BODY_ZONE_R_LEG)
 	var/list/disabled = list()

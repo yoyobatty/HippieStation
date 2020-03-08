@@ -51,9 +51,9 @@ hippie end*/
 /obj/effect/rune/examine(mob/user)
 	. = ..()
 	if(iscultist(user) || user.stat == DEAD) //If they're a cultist or a ghost, tell them the effects
-		. += {"<b>Name:</b> [cultist_name]\n
-		<b>Effects:</b> [capitalize(cultist_desc)]\n
-		<b>Required Acolytes:</b> [req_cultists_text ? "[req_cultists_text]":"[req_cultists]"]"}
+		. += "<b>Name:</b> [cultist_name]\n"+\
+		"<b>Effects:</b> [capitalize(cultist_desc)]\n"+\
+		"<b>Required Acolytes:</b> [req_cultists_text ? "[req_cultists_text]":"[req_cultists]"]"
 		if(req_keyword && keyword)
 			. += "<b>Keyword:</b> [keyword]"
 

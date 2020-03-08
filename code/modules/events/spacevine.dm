@@ -355,7 +355,7 @@
 	if(!isliving(AM))
 		return
 		for(var/datum/spacevine_mutation/SM in mutations)
-			SM.on_cross(src, crosser)
+			SM.on_cross(src, AM)
 
 //ATTACK HAND IGNORING PARENT RETURN VALUE
 /obj/structure/spacevine/attack_hand(mob/user)
