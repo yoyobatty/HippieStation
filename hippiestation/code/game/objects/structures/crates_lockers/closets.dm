@@ -7,7 +7,7 @@ Sorry for doing this, but apparently the Hippie community hates art and new thin
 
 /obj/structure/closet
 	icon_hippie = 'hippiestation/icons/obj/closet.dmi'
-
+/*
 /obj/structure/closet/update_icon()
 	cut_overlays()
 	SSvis_overlays.remove_vis_overlay(src, managed_vis_overlays)
@@ -32,4 +32,4 @@ Sorry for doing this, but apparently the Hippie community hates art and new thin
 		if(icon_door_override)
 			add_overlay("[icon_door]_open")
 		else
-			add_overlay("[icon_state]_open")
+			add_overlay("[icon_state]_open")*/

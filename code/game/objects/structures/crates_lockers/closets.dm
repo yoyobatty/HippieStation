@@ -54,6 +54,16 @@
 	cut_overlays()
 	if(!opened)
 		layer = OBJ_LAYER
+	else
+		layer = BELOW_OBJ_LAYER
+		
+	closet_update_overlays(.)
+
+/obj/structure/closet/proc/closet_update_overlays(list/new_overlays)
+	. = new_overlays
+	SSvis_overlays.remove_vis_overlay(src, managed_vis_overlays)
+	luminosity = 0
+	if(!opened)
 		if(icon_door)
 			add_overlay("[icon_door]_door")
 		else
@@ -61,6 +71,9 @@
 		if(welded)
 			add_overlay(icon_welded)
 		if(secure && !broken)
+			//Overlay is similar enough for both that we can use the same mask for both
+			luminosity = 1
+			SSvis_overlays.add_vis_overlay(src, icon, "locked", EMISSIVE_LAYER, EMISSIVE_PLANE, dir, alpha)
 			if(locked)
 				add_overlay("locked")
 			else
