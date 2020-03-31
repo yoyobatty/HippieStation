@@ -11,7 +11,8 @@
 	var/processing = FALSE
 	var/chosen = MAT_METAL //which material will be used to make coins
 	var/coinsToProduce = 10
-	speed_process = TRUE
+	processing_flags = START_PROCESSING_ON_INIT
+	subsystem_type = /datum/controller/subsystem/processing/fastprocess
 
 
 /obj/machinery/mineral/mint/Initialize()

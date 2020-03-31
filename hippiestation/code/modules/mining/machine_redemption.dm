@@ -10,7 +10,8 @@
 	input_dir = NORTH
 	output_dir = SOUTH
 	req_access = list(ACCESS_MINERAL_STOREROOM)
-	speed_process = TRUE
+	processing_flags = START_PROCESSING_ON_INIT
+	subsystem_type = /datum/controller/subsystem/processing/fastprocess
 	circuit = /obj/item/circuitboard/machine/ore_redemption
 	layer = BELOW_OBJ_LAYER
 	var/obj/item/card/id/inserted_id

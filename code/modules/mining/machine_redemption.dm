@@ -10,12 +10,13 @@
 	input_dir = NORTH
 	output_dir = SOUTH
 	req_access = list(ACCESS_MINERAL_STOREROOM)
-	speed_process = TRUE
 	layer = BELOW_OBJ_LAYER
 	var/obj/item/card/id/inserted_id
 	circuit = /obj/item/circuitboard/machine/ore_redemption
 	ui_x = 440
 	ui_y = 550
+	needs_item_input = TRUE
+	processing_flags = START_PROCESSING_MANUALLY
 
 	var/points = 0
 	var/ore_pickup_rate = 15
@@ -23,6 +24,9 @@
 	var/list/ore_values = list(MAT_GLASS = 1, MAT_METAL = 1, MAT_PLASMA = 15, MAT_SILVER = 16, MAT_GOLD = 18, MAT_TITANIUM = 30, MAT_URANIUM = 30, MAT_DIAMOND = 50, MAT_BLUESPACE = 50, MAT_BANANIUM = 60)
 	var/message_sent = FALSE
 	var/list/ore_buffer = list()
+	var/list/ore_values = list(/datum/material/iron = 1, /datum/material/glass = 1,  /datum/material/plasma = 15,  /datum/material/silver = 16, /datum/material/gold = 18, /datum/material/titanium = 30, /datum/material/uranium = 30, /datum/material/diamond = 50, /datum/material/bluespace = 50, /datum/material/bananium = 60)
+	/// Variable that holds a timer which is used for callbacks to `send_console_message()`. Used for preventing multiple calls to this proc while the ORM is eating a stack of ores.
+	var/console_notify_timer
 	var/datum/techweb/stored_research
 	var/obj/item/disk/design_disk/inserted_disk
 	var/datum/component/remote_materials/materials
@@ -61,8 +65,6 @@
 
 	if(O.refined_type == null)
 		return
-
-	ore_buffer -= O
 
 	if(O && O.refined_type)
 		points += O.points * O.amount
@@ -112,17 +114,15 @@
 	return build_amount
 
 /obj/machinery/mineral/ore_redemption/proc/process_ores(list/ores_to_process)
-	var/current_amount = 0
 	for(var/ore in ores_to_process)
-		if(current_amount >= ore_pickup_rate)
-			break
 		smelt_ore(ore)
 
 /obj/machinery/mineral/ore_redemption/proc/send_console_message()
 	var/datum/component/material_container/mat_container = materials.mat_container
 	if(!mat_container || !is_station_level(z))
 		return
-	message_sent = TRUE
+
+	console_notify_timer = null
 
 	var/area/A = get_area(src)
 	var/msg = "Now available in [A]:<br>"
@@ -148,26 +148,29 @@
 	))
 	signal.send_to_receivers()
 
-/obj/machinery/mineral/ore_redemption/process()
+/obj/machinery/mineral/ore_redemption/pickup_item(datum/source, atom/movable/target, atom/oldLoc)
 	if(!materials.mat_container || panel_open || !powered())
 		return
-	var/atom/input = get_step(src, input_dir)
-	var/obj/structure/ore_box/OB = locate() in input
-	if(OB)
-		input = OB
 
-	for(var/obj/item/stack/ore/O in input)
-		if(QDELETED(O))
-			continue
-		ore_buffer |= O
-		O.forceMove(src)
-		CHECK_TICK
+	if(istype(target, /obj/structure/ore_box))
+		var/obj/structure/ore_box/box = target
+		process_ores(box.contents)
+	else if(istype(target, /obj/item/stack/ore))
+		var/obj/item/stack/ore/O = target
+		smelt_ore(O)
+	else
+		return
 
-	if(LAZYLEN(ore_buffer))
-		message_sent = FALSE
-		process_ores(ore_buffer)
-	else if(!message_sent)
-		send_console_message()
+	if(!console_notify_timer)
+		// gives 5 seconds for a load of ores to be sucked up by the ORM before it sends out request console notifications. This should be enough time for most deposits that people make
+		console_notify_timer = addtimer(CALLBACK(src, .proc/send_console_message), 5 SECONDS)
+
+/obj/machinery/mineral/ore_redemption/default_unfasten_wrench(mob/user, obj/item/I)
+	. = ..()
+	if(anchored)
+		register_input_turf() // someone just wrenched us down, re-register the turf
+	else
+		unregister_input_turf() // someone just un-wrenched us, unregister the turf
 
 /obj/machinery/mineral/ore_redemption/attackby(obj/item/W, mob/user, params)
 	if(default_unfasten_wrench(user, W))
@@ -207,6 +210,8 @@
 		input_dir = turn(input_dir, -90)
 		output_dir = turn(output_dir, -90)
 		to_chat(user, "<span class='notice'>You change [src]'s I/O settings, setting the input to [dir2text(input_dir)] and the output to [dir2text(output_dir)].</span>")
+		unregister_input_turf() // someone just rotated the input and output directions, unregister the old turf
+		register_input_turf() // register the new one
 		return TRUE
 
 /obj/machinery/mineral/ore_redemption/ui_interact(mob/user, ui_key = "main", datum/tgui/ui = null, force_open = FALSE, datum/tgui/master_ui = null, datum/ui_state/state = GLOB.default_state)
