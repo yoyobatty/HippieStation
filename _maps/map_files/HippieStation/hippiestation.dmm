@@ -41302,12 +41302,6 @@
 /obj/effect/mapping_helpers/airlock/abandoned,
 /turf/open/floor/plating,
 /area/maintenance/starboard/aft)
-"cqZ" = (
-/obj/machinery/light/small{
-	dir = 1
-	},
-/turf/open/floor/plating,
-/area/maintenance/starboard/aft)
 "cra" = (
 /obj/effect/landmark/event_spawn,
 /turf/open/floor/plating,
@@ -41682,10 +41676,6 @@
 /obj/machinery/atmospherics/pipe/manifold/supply/hidden/layer1{
 	dir = 1
 	},
-/turf/open/floor/plating,
-/area/maintenance/starboard/aft)
-"csh" = (
-/obj/structure/closet/firecloset,
 /turf/open/floor/plating,
 /area/maintenance/starboard/aft)
 "csi" = (
@@ -57443,6 +57433,10 @@
 	},
 /turf/open/floor/plasteel/dark,
 /area/ai_monitored/turret_protected/aisat/atmos)
+"qEp" = (
+/obj/effect/landmark/maint_spawn/test,
+/turf/open/floor/plating,
+/area/maintenance/starboard/aft)
 "qFj" = (
 /obj/effect/turf_decal/stripes/line{
 	dir = 4
@@ -59085,12 +59079,6 @@
 /obj/structure/cable,
 /turf/open/floor/engine,
 /area/engine/engineering)
-"twF" = (
-/obj/structure/table,
-/obj/effect/spawner/lootdrop/maintenance,
-/obj/item/switchblade/civilian,
-/turf/open/floor/plating,
-/area/maintenance/starboard/aft)
 "txC" = (
 /obj/structure/lattice,
 /obj/machinery/atmospherics/pipe/simple/orange/visible,
@@ -60707,13 +60695,6 @@
 "wnQ" = (
 /turf/open/floor/plasteel/stairs/medium,
 /area/hallway/secondary/entry)
-"wnY" = (
-/obj/effect/landmark/event_spawn,
-/obj/effect/turf_decal/stripes/line{
-	dir = 1
-	},
-/turf/open/floor/plating,
-/area/maintenance/starboard/aft)
 "wom" = (
 /obj/effect/turf_decal/stripes/corner{
 	dir = 4
@@ -112843,9 +112824,9 @@ cmk
 cnB
 bWr
 bSP
-cqZ
-bWw
-twF
+bWr
+bWr
+bWr
 bSP
 qYa
 eXs
@@ -113100,8 +113081,8 @@ cml
 bWr
 dQf
 cpQ
-wnY
 bWr
+qEp
 bWr
 bSP
 dxs
@@ -113359,7 +113340,7 @@ coW
 bSP
 bWr
 bWr
-csh
+bWr
 bSP
 qZK
 uaw
