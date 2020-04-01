@@ -12,5 +12,5 @@
 	name = "Maint 3x3"
 
 /datum/map_template/maint/threebythree/New()
-	suffix = pick("maint_3x3_basic", "maint_3x3_jani")
+	suffix = pick("maint_3x3_basic.dmm", "maint_3x3_jani.dmm")
 	..()

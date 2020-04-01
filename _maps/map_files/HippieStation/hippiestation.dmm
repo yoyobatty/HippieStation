@@ -57434,7 +57434,7 @@
 /turf/open/floor/plasteel/dark,
 /area/ai_monitored/turret_protected/aisat/atmos)
 "qEp" = (
-/obj/effect/landmark/maint_spawn/test,
+/obj/effect/landmark/maint_spawn/threebythree,
 /turf/open/floor/plating,
 /area/maintenance/starboard/aft)
 "qFj" = (
