@@ -5,40 +5,40 @@
 	},
 /obj/effect/decal/cleanable/cobweb,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "b" = (
 /obj/effect/landmark/event_spawn,
 /obj/effect/turf_decal/stripes/line{
 	dir = 1
 	},
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "c" = (
 /obj/item/storage/belt/janitor,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "d" = (
 /obj/effect/decal/cleanable/dirt,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "e" = (
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "f" = (
 /obj/effect/spawner/lootdrop/maintenance,
 /obj/structure/closet/l3closet/janitor,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "g" = (
 /obj/effect/decal/cleanable/glass,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "h" = (
 /obj/structure/mopbucket,
 /obj/item/mop,
 /obj/effect/decal/cleanable/dirt,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 
 (1,1,1) = {"
 a

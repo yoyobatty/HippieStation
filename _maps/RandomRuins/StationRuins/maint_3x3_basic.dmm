@@ -4,31 +4,31 @@
 	dir = 1
 	},
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "b" = (
 /obj/effect/landmark/event_spawn,
 /obj/effect/turf_decal/stripes/line{
 	dir = 1
 	},
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "c" = (
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "d" = (
 /obj/structure/chair/stool,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "e" = (
 /obj/structure/table,
 /obj/effect/spawner/lootdrop/maintenance,
 /obj/item/switchblade/civilian,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 "f" = (
 /obj/structure/closet/firecloset,
 /turf/open/floor/plating,
-/area/space)
+/area/maintenance/starboard/aft)
 
 (1,1,1) = {"
 a
