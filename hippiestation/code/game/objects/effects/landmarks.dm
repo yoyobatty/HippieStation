@@ -39,3 +39,7 @@
 /obj/effect/landmark/maint_spawn/threebythree
 	name = "3x3 spawner"
 	room_type = /datum/map_template/maint/threebythree
+
+/obj/effect/landmark/maint_spawn/twobythree
+	name = "2x3 spawner"
+	room_type = /datum/map_template/maint/twobythree

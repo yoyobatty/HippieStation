@@ -2,7 +2,7 @@
 /datum/map_template/maint
 	name = "Maint Basic"
 	var/prefix = "_maps/RandomRuins/StationRuins/"
-	var/suffix = "maint_basic.dmm"
+	var/suffix
 
 /datum/map_template/maint/New()
 	mappath = prefix + suffix
@@ -12,5 +12,12 @@
 	name = "Maint 3x3"
 
 /datum/map_template/maint/threebythree/New()
-	suffix = pick("maint_3x3_basic.dmm", "maint_3x3_jani.dmm")
+	suffix = pick("maint_3x3_basic.dmm", "maint_3x3_jani.dmm", "maint_3x3_medi.dmm")
+	..()
+
+/datum/map_template/maint/twobythree
+	name = "Maint 2x3"
+
+/datum/map_template/maint/twobythree/New()
+	suffix = pick("maint_2x3_basic.dmm")
 	..()
